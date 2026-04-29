@@ -1,11 +1,12 @@
 import { app } from '@/lib/hono';
 import { db, executeSQL } from '@/db';
-import { stalls, dishes, reviews } from '@/db/schema';
-import { eq, desc, and, gte } from 'drizzle-orm';
+import { stalls, dishes, reviews, reviewLikes } from '@/db/schema';
+import { eq, desc, and, gte, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { withRetry } from '@/lib/retry';
 import { serializeForJson } from '@/lib/db-utils';
+import { calculateHotScore } from '@/lib/review-utils';
 
 app.get('/stalls', async (c) => {
   const cafeteriaId = c.req.query('cafeteriaId');
@@ -55,11 +56,12 @@ app.get('/stalls/:id', async (c) => {
     .set({ totalViews: (stall as any).totalViews + 1 })
     .where(eq(stalls.id, id));
 
-  const recentReviews = await withRetry(() =>
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  const allReviews = await withRetry(() =>
     (db as any).query.reviews.findMany({
       where: eq(reviews.stallId, id),
-      orderBy: desc(reviews.createdAt),
-      limit: 5,
       with: {
         student: {
           columns: {
@@ -71,6 +73,35 @@ app.get('/stalls/:id', async (c) => {
       },
     })
   );
+
+  let enriched = allReviews as any[];
+  if (userId) {
+    const likes = await withRetry(() =>
+      (db as any).query.reviewLikes.findMany({
+        where: and(
+          eq(reviewLikes.studentId, userId),
+          inArray(reviewLikes.reviewId, enriched.map((r: any) => r.id))
+        ),
+      })
+    );
+    const likedSet = new Set<string>((likes as any[]).map((l: any) => l.reviewId));
+    enriched = enriched.map((r: any) => ({
+      ...r,
+      likedByMe: likedSet.has(r.id),
+      isOwn: r.studentId === userId,
+      hotScore: calculateHotScore(r.likes, r.createdAt),
+    }));
+  } else {
+    enriched = enriched.map((r: any) => ({
+      ...r,
+      likedByMe: false,
+      isOwn: false,
+      hotScore: calculateHotScore(r.likes, r.createdAt),
+    }));
+  }
+
+  enriched.sort((a, b) => b.hotScore - a.hotScore);
+  const recentReviews = enriched.slice(0, 5);
 
   return c.json({
     success: true,

@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { ArrowLeft, Star, ChevronRight, MapPin, Eye, Circle } from 'lucide-react';
+import { ArrowLeft, Star, ChevronRight, MapPin, Eye, Circle, Heart, Trash2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { format } from 'date-fns';
@@ -30,6 +32,8 @@ interface Review {
   content: string;
   images?: string[];
   likes: number;
+  likedByMe: boolean;
+  isOwn: boolean;
   merchantReply?: string;
   createdAt: string;
   student: {
@@ -113,8 +117,60 @@ function DishListItem({ dish, index, stallId }: { dish: Dish; index: number; sta
   );
 }
 
-function ReviewItem({ review, index }: { review: Review; index: number }) {
+function ReviewItem({ review, index, stallId, sessionRole }: {
+  review: Review;
+  index: number;
+  stallId: string;
+  sessionRole?: string;
+}) {
   const reviewImages = normalizeImages(review.images);
+  const queryClient = useQueryClient();
+  const [isLiked, setIsLiked] = useState(review.likedByMe);
+  const [likeCount, setLikeCount] = useState(review.likes);
+  const [liking, setLiking] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const isStudent = sessionRole === 'student';
+  const canDelete = isStudent && review.isOwn;
+  const canLike = isStudent;
+
+  const handleLike = async () => {
+    if (!canLike || liking) return;
+    setLiking(true);
+    const prevLiked = isLiked;
+    const prevCount = likeCount;
+    setIsLiked(!isLiked);
+    setLikeCount(prevLiked ? prevCount - 1 : prevCount + 1);
+    try {
+      const res = await fetch(`/api/reviews/${review.id}/like`, { method: 'POST' });
+      const json = await res.json();
+      if (!json.success) {
+        setIsLiked(prevLiked);
+        setLikeCount(prevCount);
+      }
+    } catch {
+      setIsLiked(prevLiked);
+      setLikeCount(prevCount);
+    } finally {
+      setLiking(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!canDelete || deleting) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/reviews/${review.id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        queryClient.invalidateQueries({ queryKey: ['stall', stallId] });
+      }
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
 
   return (
     <motion.div
@@ -161,10 +217,60 @@ function ReviewItem({ review, index }: { review: Review; index: number }) {
         <span className="text-[13px] text-gray-400">
           {format(new Date(review.createdAt), 'MM月dd日', { locale: zhCN })}
         </span>
-        <div className="flex items-center gap-1 text-gray-400">
-          <span className="text-[13px]">👍 {review.likes}</span>
+
+        <div className="flex items-center gap-3">
+          {canDelete && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="flex items-center gap-1 text-gray-400 hover:text-red-500 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+
+          {canLike ? (
+            <button
+              onClick={handleLike}
+              disabled={liking}
+              className={`flex items-center gap-1 transition-colors ${
+                isLiked ? 'text-red-500' : 'text-gray-400 hover:text-red-400'
+              }`}
+            >
+              <Heart className={`w-4 h-4 ${isLiked ? 'fill-red-500' : ''}`} />
+              <span className="text-[13px]">{likeCount}</span>
+            </button>
+          ) : (
+            <span className="flex items-center gap-1 text-gray-400">
+              <Heart className="w-4 h-4" />
+              <span className="text-[13px]">{review.likes}</span>
+            </span>
+          )}
         </div>
       </div>
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-xs shadow-xl">
+            <h3 className="text-lg font-bold text-black mb-2">删除评价</h3>
+            <p className="text-[15px] text-gray-500 mb-6">确定要删除这条评价吗？删除后无法恢复。</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-700 font-medium text-[15px]"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 h-11 rounded-xl bg-red-500 text-white font-medium text-[15px] disabled:opacity-50"
+              >
+                {deleting ? '删除中...' : '删除'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -172,6 +278,7 @@ function ReviewItem({ review, index }: { review: Review; index: number }) {
 export default function StallDetailPage() {
   const params = useParams();
   const stallId = params.id as string;
+  const { data: session } = useSession();
 
   const { data: stall, isLoading } = useQuery<StallDetail>({
     queryKey: ['stall', stallId],
@@ -301,7 +408,7 @@ export default function StallDetailPage() {
           ) : (
             <div>
               {stall.recentReviews?.map((review, index) => (
-                <ReviewItem key={review.id} review={review} index={index} />
+                <ReviewItem key={review.id} review={review} index={index} stallId={stall.id} sessionRole={session?.user?.role} />
               ))}
             </div>
           )}

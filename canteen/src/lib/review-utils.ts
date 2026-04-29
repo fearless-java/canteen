@@ -19,3 +19,15 @@ export function normalizeImages(images: unknown): string[] {
 
   return [];
 }
+
+const LIKE_WEIGHT = 10;
+const GRAVITY = 1.5;
+const HOUR_DIVISOR = 2;
+
+export function calculateHotScore(likes: number, createdAt: Date | number): number {
+  const ageMs = Date.now() - (createdAt instanceof Date ? createdAt.getTime() : createdAt);
+  const ageHours = ageMs / (1000 * 60 * 60);
+  const likeScore = Math.log(likes + 1) * LIKE_WEIGHT + 1;
+  const decay = Math.pow(ageHours + HOUR_DIVISOR, GRAVITY);
+  return likeScore / decay;
+}

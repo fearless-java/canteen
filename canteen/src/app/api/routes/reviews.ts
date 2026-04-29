@@ -1,13 +1,38 @@
 import { app } from '@/lib/hono';
 import { db, sqliteSchema, isLocalDB } from '@/db';
 import { reviews, stalls, dishes, reviewLikes } from '@/db/schema';
-import { eq, desc, and, sql } from 'drizzle-orm';
+import { eq, desc, and, sql, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { withRetry } from '@/lib/retry';
+import { calculateHotScore } from '@/lib/review-utils';
 
 function generateUUID() {
   return crypto.randomUUID();
+}
+
+async function enrichReviews(reviewsList: any[], sessionUserId?: string) {
+  if (reviewsList.length === 0) return [];
+
+  let likedReviewIds = new Set<string>();
+  if (sessionUserId) {
+    const likes = await withRetry(() =>
+      (db as any).query.reviewLikes.findMany({
+        where: and(
+          eq(reviewLikes.studentId, sessionUserId),
+          inArray(reviewLikes.reviewId, reviewsList.map((r) => r.id))
+        ),
+      })
+    );
+    likedReviewIds = new Set((likes as any[]).map((l) => l.reviewId));
+  }
+
+  return reviewsList.map((r) => ({
+    ...r,
+    likedByMe: likedReviewIds.has(r.id),
+    isOwn: sessionUserId ? r.studentId === sessionUserId : false,
+    hotScore: calculateHotScore(r.likes, r.createdAt),
+  }));
 }
 
 app.get('/reviews', async (c) => {
@@ -17,10 +42,11 @@ app.get('/reviews', async (c) => {
     return c.json({ success: false, error: 'stallId is required' }, 400);
   }
 
+  const session = await auth();
+
   const data = await withRetry(() =>
     (db as any).query.reviews.findMany({
       where: eq(reviews.stallId, stallId),
-      orderBy: desc(reviews.createdAt),
       with: {
         student: {
           columns: {
@@ -33,7 +59,10 @@ app.get('/reviews', async (c) => {
     })
   );
 
-  return c.json({ success: true, data });
+  const enriched = await enrichReviews(data as any[], session?.user?.id);
+  enriched.sort((a, b) => b.hotScore - a.hotScore);
+
+  return c.json({ success: true, data: enriched });
 });
 
 app.post('/reviews', async (c) => {
@@ -121,6 +150,82 @@ app.post('/reviews', async (c) => {
   return c.json({ success: true, data: review }, 201);
 });
 
+app.delete('/reviews/:id', async (c) => {
+  const session = await auth();
+
+  if (!session?.user || session.user.role !== 'student') {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
+  }
+
+  const reviewId = c.req.param('id');
+
+  const review = await withRetry(() =>
+    (db as any).query.reviews.findFirst({
+      where: eq(reviews.id, reviewId),
+    })
+  );
+
+  if (!review) {
+    return c.json({ success: false, error: '评价不存在' }, 404);
+  }
+
+  if ((review as any).studentId !== session.user.id) {
+    return c.json({ success: false, error: '无权删除他人评价' }, 403);
+  }
+
+  const reviewData = review as any;
+
+  await (db as any)
+    .delete(reviewLikes)
+    .where(eq(reviewLikes.reviewId, reviewId));
+
+  await (db as any)
+    .delete(reviews)
+    .where(eq(reviews.id, reviewId));
+
+  const stallReviews = await withRetry(() =>
+    (db as any).query.reviews.findMany({
+      where: eq(reviews.stallId, reviewData.stallId),
+    })
+  );
+
+  const stallReviewsList = stallReviews as any[];
+  const avgRating = stallReviewsList.length > 0
+    ? stallReviewsList.reduce((sum: number, r: any) => sum + r.rating, 0) / stallReviewsList.length
+    : 0;
+
+  await (db as any)
+    .update(stalls)
+    .set({
+      avgRating: avgRating.toFixed(1),
+      totalReviews: stallReviewsList.length,
+    })
+    .where(eq(stalls.id, reviewData.stallId));
+
+  if (reviewData.dishId) {
+    const dishReviews = await withRetry(() =>
+      (db as any).query.reviews.findMany({
+        where: eq(reviews.dishId, reviewData.dishId),
+      })
+    );
+
+    const dishReviewsList = dishReviews as any[];
+    const dishAvgRating = dishReviewsList.length > 0
+      ? dishReviewsList.reduce((sum: number, r: any) => sum + r.rating, 0) / dishReviewsList.length
+      : 0;
+
+    await (db as any)
+      .update(dishes)
+      .set({
+        avgRating: dishAvgRating.toFixed(1),
+        totalReviews: dishReviewsList.length,
+      })
+      .where(eq(dishes.id, reviewData.dishId));
+  }
+
+  return c.json({ success: true });
+});
+
 app.post('/reviews/:id/like', async (c) => {
   const session = await auth();
 
@@ -200,7 +305,9 @@ app.get('/reviews/my', async (c) => {
     })
   );
 
-  return c.json({ success: true, data });
+  const enriched = await enrichReviews(data as any[], session.user.id);
+
+  return c.json({ success: true, data: enriched });
 });
 
 app.post('/reviews/:id/reply', async (c) => {

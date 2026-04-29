@@ -1,9 +1,10 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Star, MessageSquare, ChevronRight, UtensilsCrossed } from 'lucide-react';
+import { ArrowLeft, Star, MessageSquare, ChevronRight, UtensilsCrossed, Trash2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -16,6 +17,8 @@ interface Review {
   content: string;
   images: string[];
   likes: number;
+  likedByMe: boolean;
+  isOwn: boolean;
   merchantReply?: string;
   createdAt: string;
   stall: {
@@ -45,7 +48,27 @@ function StarRating({ rating }: { rating: number }) {
 
 function ReviewItem({ review, index }: { review: Review; index: number }) {
   const images = normalizeImages(review.images);
-  
+  const queryClient = useQueryClient();
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/reviews/${review.id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        queryClient.invalidateQueries({ queryKey: ['my-reviews'] });
+      }
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -99,9 +122,43 @@ function ReviewItem({ review, index }: { review: Review; index: number }) {
                 {format(new Date(review.createdAt), 'MM月dd日', { locale: zhCN })}
               </span>
             </div>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowDeleteConfirm(true);
+              }}
+              className="flex items-center gap-1 text-gray-400 hover:text-red-500 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </Link>
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-xs shadow-xl">
+            <h3 className="text-lg font-bold text-black mb-2">删除评价</h3>
+            <p className="text-[15px] text-gray-500 mb-6">确定要删除这条评价吗？删除后无法恢复。</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-700 font-medium text-[15px]"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 h-11 rounded-xl bg-red-500 text-white font-medium text-[15px] disabled:opacity-50"
+              >
+                {deleting ? '删除中...' : '删除'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
