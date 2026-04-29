@@ -7,6 +7,8 @@ import { ArrowLeft, Star, MessageSquare, ChevronRight, UtensilsCrossed } from 'l
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { normalizeImages } from '@/lib/review-utils';
+import { ReviewImage } from '@/components/common/ReviewImage';
 
 interface Review {
   id: string;
@@ -42,18 +44,7 @@ function StarRating({ rating }: { rating: number }) {
 }
 
 function ReviewItem({ review, index }: { review: Review; index: number }) {
-  // Handle SQLite JSON string vs PostgreSQL array
-  let images: string[] = [];
-  if (typeof review.images === 'string') {
-    try {
-      images = JSON.parse(review.images);
-    } catch (e) {
-      // 如果解析失败，尝试作为单张图片处理或返回空数组
-      images = review.images && review.images.length > 2 ? [review.images] : [];
-    }
-  } else if (Array.isArray(review.images)) {
-    images = review.images;
-  }
+  const images = normalizeImages(review.images);
   
   return (
     <motion.div
@@ -86,7 +77,7 @@ function ReviewItem({ review, index }: { review: Review; index: number }) {
             <div className="flex gap-2 overflow-x-auto scrollbar-hide mb-3">
               {images.map((image: string, i: number) => (
                 <div key={i} className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-gray-100">
-                  <img src={image} alt={`图片${i + 1}`} className="w-full h-full object-cover" />
+                  <ReviewImage src={image} alt={`图片${i + 1}`} className="w-full h-full object-cover" />
                 </div>
               ))}
             </div>

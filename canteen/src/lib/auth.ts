@@ -41,15 +41,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email,
           name: user.name,
           role: user.role,
+          avatar: user.avatar || undefined,
         };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }: { token: any; user: any }) {
+    async jwt({ token, user, trigger, session }: { token: any; user: any; trigger?: string; session?: any }) {
       if (user) {
         token.role = user.role;
         token.id = user.id;
+        token.avatar = user.avatar;
+      }
+      if (trigger === 'update') {
+        if (session?.avatar !== undefined) token.avatar = session.avatar;
+        if (session?.name !== undefined) token.name = session.name;
       }
       return token;
     },
@@ -57,6 +63,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (token) {
         session.user.role = token.role as 'student' | 'merchant';
         session.user.id = token.id as string;
+        session.user.avatar = token.avatar as string | undefined;
+        if (token.name) session.user.name = token.name as string;
       }
       return session;
     },

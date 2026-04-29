@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Edit, Save, Store, ImageIcon } from 'lucide-react';
+import { ImageUpload } from '@/components/common/ImageUpload';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -142,7 +143,16 @@ export default function MerchantStallPage() {
                     rows={3}
                   />
                 </div>
-                
+
+                <div>
+                  <Label>档口图片</Label>
+                  <ImageUpload
+                    images={formData.image ? [formData.image] : []}
+                    onChange={(images) => setFormData({ ...formData, image: images[0] || '' })}
+                    maxImages={1}
+                  />
+                </div>
+
                 <div className="flex items-center gap-2">
                   <Switch
                     checked={formData.isActive}

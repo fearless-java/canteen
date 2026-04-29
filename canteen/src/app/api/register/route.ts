@@ -10,6 +10,7 @@ const registerSchema = z.object({
   password: z.string().min(6, '密码至少需要6个字符'),
   name: z.string().min(2, '姓名至少需要2个字符'),
   role: z.enum(['student', 'merchant']),
+  avatar: z.string().optional(),
 });
 
 export async function POST(request: Request) {
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { email, password, name, role } = result.data;
+    const { email, password, name, role, avatar } = result.data;
 
     const existingUser = await (db as any)
       .select()
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
       password: hashedPassword,
       name,
       role,
+      avatar: avatar || null,
     }).returning();
 
     return NextResponse.json({

@@ -10,6 +10,7 @@ import '@/app/api/routes/upload';
 import '@/app/api/routes/uploads';
 import '@/app/api/routes/merchant';
 import '@/app/api/routes/stats';
+import '@/app/api/routes/user';
 
 export const GET = handle(app);
 export const POST = handle(app);

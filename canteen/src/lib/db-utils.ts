@@ -27,13 +27,8 @@ export function serializeForJson(data: any): any {
 
   // Handle objects (but not special objects like Buffer, Date, etc.)
   if (typeof data === 'object' && data !== null) {
-    // Skip if already handled above
+    // Skip binary data
     if (data instanceof Buffer || data instanceof ArrayBuffer || data instanceof Uint8Array) {
-      return data;
-    }
-
-    // Skip Drizzle proxy objects and similar
-    if (data.constructor && data.constructor.name !== 'Object' && data.constructor.name !== 'Row') {
       return data;
     }
 
@@ -41,9 +36,13 @@ export function serializeForJson(data: any): any {
     for (const [key, value] of Object.entries(data)) {
       try {
         result[key] = serializeForJson(value);
-      } catch (e) {
-        // If serialization fails for a property, keep the original value
-        result[key] = value;
+      } catch {
+        // If serialization fails, try JSON round-trip, fall back to string coercion
+        try {
+          result[key] = JSON.parse(JSON.stringify(value));
+        } catch {
+          result[key] = String(value);
+        }
       }
     }
     return result;

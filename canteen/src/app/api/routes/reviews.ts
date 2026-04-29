@@ -1,5 +1,5 @@
 import { app } from '@/lib/hono';
-import { db, isLocalDB } from '@/db';
+import { db, sqliteSchema, isLocalDB } from '@/db';
 import { reviews, stalls, dishes, reviewLikes } from '@/db/schema';
 import { eq, desc, and, sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -68,7 +68,7 @@ app.post('/reviews', async (c) => {
   const data = result.data;
 
   const [review] = await (db as any)
-    .insert(reviews)
+    .insert(isLocalDB ? sqliteSchema.reviews : reviews)
     .values({
       id: generateUUID(),
       studentId: session.user.id,
@@ -76,9 +76,9 @@ app.post('/reviews', async (c) => {
       dishId: data.dishId,
       rating: data.rating,
       content: data.content,
-      images: data.images,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      images: isLocalDB ? JSON.stringify(data.images) : data.images,
+      createdAt: isLocalDB ? Date.now() : new Date(),
+      updatedAt: isLocalDB ? Date.now() : new Date(),
     })
     .returning();
 
@@ -248,7 +248,7 @@ app.post('/reviews/:id/reply', async (c) => {
     .update(reviews)
     .set({
       merchantReply: reply,
-      repliedAt: new Date(),
+      repliedAt: isLocalDB ? Date.now() : new Date(),
     })
     .where(eq(reviews.id, reviewId))
     .returning();

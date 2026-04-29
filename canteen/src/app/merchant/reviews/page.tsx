@@ -13,11 +13,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { getDefaultAvatar } from '@/lib/utils';
+import { normalizeImages } from '@/lib/review-utils';
+import { ReviewImage } from '@/components/common/ReviewImage';
 
 interface Review {
   id: string;
   rating: number;
   content: string;
+  images?: string[];
   likes: number;
   merchantReply?: string;
   createdAt: string;
@@ -88,7 +91,9 @@ export default function MerchantReviewsPage() {
             <p>暂无评价</p>
           </div>
         ) : (
-          reviews?.map((review, index) => (
+          reviews?.map((review, index) => {
+            const reviewImages = normalizeImages(review.images);
+            return (
             <motion.div
               key={review.id}
               initial={{ opacity: 0, y: 10 }}
@@ -100,8 +105,8 @@ export default function MerchantReviewsPage() {
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-100 to-purple-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                       <img
-                        src={getDefaultAvatar(review.student.id)}
-                        alt={review.student.name}
+                        src={review.student.avatar || getDefaultAvatar(review.student.id)}
+                        alt={review.student.name || ''}
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -124,6 +129,16 @@ export default function MerchantReviewsPage() {
                       </div>
 
                       <p className="mt-2 text-gray-700">{review.content}</p>
+
+                      {reviewImages.length > 0 && (
+                        <div className="flex gap-2 mt-2 overflow-x-auto">
+                          {reviewImages.map((url, i) => (
+                            <div key={i} className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                              <ReviewImage src={url} alt={`评价图片 ${i + 1}`} className="w-full h-full object-cover" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       {review.merchantReply ? (
                         <div className="mt-3 p-3 bg-gray-50 rounded-lg">
@@ -189,8 +204,8 @@ export default function MerchantReviewsPage() {
                 </CardContent>
               </Card>
             </motion.div>
-          ))
-        )}
+          );
+        }))}
       </div>
     </div>
   );

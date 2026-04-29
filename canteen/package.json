@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "dev:local": "DB_PROVIDER=local bun dev",
+    "dev": "next dev --webpack",
+    "dev:local": "DB_PROVIDER=local next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

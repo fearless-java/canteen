@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { User, Mail, Lock, Eye, EyeOff, ArrowLeft, UtensilsCrossed } from 'lucide-react';
+import { ImageUpload } from '@/components/common/ImageUpload';
+import { Label } from '@/components/ui/label';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -18,6 +20,7 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
     role: 'student' as 'student' | 'merchant',
+    avatar: '' as string,
   });
 
   async function handleSubmit(e: React.FormEvent) {
@@ -45,6 +48,7 @@ export default function RegisterPage() {
           email: formData.email,
           password: formData.password,
           role: formData.role,
+          avatar: formData.avatar || undefined,
         }),
       });
 
@@ -165,6 +169,15 @@ export default function RegisterPage() {
             >
               {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
+          </div>
+
+          <div>
+            <Label className="text-sm text-gray-600 mb-2 block">头像（可选）</Label>
+            <ImageUpload
+              images={formData.avatar ? [formData.avatar] : []}
+              onChange={(images) => setFormData({ ...formData, avatar: images[0] || '' })}
+              maxImages={1}
+            />
           </div>
 
           <div className="flex gap-4 py-2">

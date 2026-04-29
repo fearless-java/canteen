@@ -1,11 +1,12 @@
 'use client';
 
+import { useRef, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { User, Store, MessageCircle, Heart, Settings, ChevronRight, LogOut } from 'lucide-react';
+import { User, Store, MessageCircle, Heart, Settings, ChevronRight, LogOut, Camera, Loader2 } from 'lucide-react';
 import { BottomNav } from '@/components/layout/BottomNav';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getDefaultAvatar } from '@/lib/utils';
 
 interface MenuItemProps {
@@ -45,8 +46,11 @@ interface Stats {
 }
 
 export default function ProfilePage() {
-  const { data: session } = useSession();
-  
+  const { data: session, update: updateSession } = useSession();
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
   const { data: stats } = useQuery<Stats>({
     queryKey: ['stats', 'my'],
     queryFn: async () => {
@@ -56,6 +60,45 @@ export default function ProfilePage() {
     },
     enabled: !!session?.user,
   });
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setAvatarUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const uploadRes = await fetch('/api/upload/image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadRes.ok) throw new Error('Upload failed');
+      const uploadData = await uploadRes.json();
+      if (!uploadData.success) throw new Error(uploadData.error || 'Upload failed');
+
+      const profileRes = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar: uploadData.data.url }),
+      });
+
+      const profileData = await profileRes.json();
+      if (!profileData.success) throw new Error(profileData.error || 'Update failed');
+
+      await updateSession({ avatar: uploadData.data.url });
+      queryClient.invalidateQueries({ queryKey: ['stats', 'my'] });
+    } catch (error) {
+      console.error('Avatar upload failed:', error);
+    } finally {
+      setAvatarUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const avatarSrc = session?.user?.avatar || getDefaultAvatar(session?.user?.id || 'default');
 
   if (!session?.user) {
     return (
@@ -131,14 +174,33 @@ export default function ProfilePage() {
       >
         <div className="py-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-pink-100 to-purple-100 flex items-center justify-center overflow-hidden">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={avatarUploading}
+              className="relative w-16 h-16 rounded-full bg-gradient-to-br from-pink-100 to-purple-100 flex items-center justify-center overflow-hidden group cursor-pointer disabled:cursor-not-allowed"
+            >
               <img
-                src={getDefaultAvatar(session.user.id)}
-                alt={session.user.name}
+                src={avatarSrc}
+                alt={session.user.name || ''}
                 className="w-full h-full object-cover"
               />
-            </div>
-            
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                {avatarUploading ? (
+                  <Loader2 className="w-5 h-5 text-white animate-spin" />
+                ) : (
+                  <Camera className="w-5 h-5 text-white" />
+                )}
+              </div>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleAvatarUpload}
+            />
+
             <div className="flex-1">
               <h2 className="text-lg font-bold text-black">{session.user.name}</h2>
               <p className="text-[15px] text-gray-400 mt-0.5">{session.user.email}</p>

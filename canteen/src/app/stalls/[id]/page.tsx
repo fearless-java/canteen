@@ -10,12 +10,15 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { getDefaultAvatar } from '@/lib/utils';
+import { normalizeImages } from '@/lib/review-utils';
+import { ReviewImage } from '@/components/common/ReviewImage';
 
 interface Dish {
   id: string;
   name: string;
   description?: string;
   price: string;
+  image?: string;
   avgRating: string;
   totalReviews: number;
   isAvailable: boolean;
@@ -25,12 +28,14 @@ interface Review {
   id: string;
   rating: number;
   content: string;
+  images?: string[];
   likes: number;
   merchantReply?: string;
   createdAt: string;
   student: {
     id: string;
     name: string;
+    avatar?: string;
   };
 }
 
@@ -72,7 +77,12 @@ function DishListItem({ dish, index, stallId }: { dish: Dish; index: number; sta
     >
       <div className="flex items-center justify-between py-4 border-b border-[#EEEEEE] active:bg-[#F8F8F8] transition-colors cursor-pointer">
         <Link href={`/dishes/${dish.id}`} className="flex-1 min-w-0">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
+            {dish.image && (
+              <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-medium text-black truncate">{dish.name}</h3>
@@ -104,6 +114,8 @@ function DishListItem({ dish, index, stallId }: { dish: Dish; index: number; sta
 }
 
 function ReviewItem({ review, index }: { review: Review; index: number }) {
+  const reviewImages = normalizeImages(review.images);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -115,8 +127,8 @@ function ReviewItem({ review, index }: { review: Review; index: number }) {
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-100 to-purple-100 flex items-center justify-center overflow-hidden">
             <img
-              src={getDefaultAvatar(review.student.id)}
-              alt={review.student.name}
+              src={review.student.avatar || getDefaultAvatar(review.student.id)}
+              alt={review.student.name || ''}
               className="w-full h-full object-cover"
             />
           </div>
@@ -124,9 +136,19 @@ function ReviewItem({ review, index }: { review: Review; index: number }) {
         </div>
         <StarRating rating={review.rating} />
       </div>
-      
+
       <p className="text-[15px] text-black leading-relaxed mb-3">{review.content}</p>
-      
+
+      {reviewImages.length > 0 && (
+        <div className="flex gap-2 mb-3 overflow-x-auto">
+          {reviewImages.map((url, i) => (
+            <div key={i} className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+              <ReviewImage src={url} alt={`评价图片 ${i + 1}`} className="w-full h-full object-cover" />
+            </div>
+          ))}
+        </div>
+      )}
+
       {review.merchantReply && (
         <div className="bg-[#F8F8F8] rounded-lg p-3 mb-3 border-l-3 border-[#D97706]">
           <p className="text-sm text-gray-600">
@@ -134,7 +156,7 @@ function ReviewItem({ review, index }: { review: Review; index: number }) {
           </p>
         </div>
       )}
-      
+
       <div className="flex items-center justify-between">
         <span className="text-[13px] text-gray-400">
           {format(new Date(review.createdAt), 'MM月dd日', { locale: zhCN })}

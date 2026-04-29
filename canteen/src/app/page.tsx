@@ -70,7 +70,21 @@ function RatingChangeBadge({ change }: { change: number }) {
   );
 }
 
-function StallListItem({ stall, index }: { stall: Stall; index: number }) {
+function RankBadge({ rank }: { rank: number }) {
+  const config: Record<number, { label: string; className: string }> = {
+    1: { label: '🥇 第一名', className: 'bg-amber-50 border-amber-200 text-amber-700' },
+    2: { label: '🥈 第二名', className: 'bg-gray-50 border-gray-200 text-gray-600' },
+    3: { label: '🥉 第三名', className: 'bg-orange-50 border-orange-200 text-orange-700' },
+  };
+  const c = config[rank as 1 | 2 | 3];
+  return (
+    <div className={`flex items-center gap-1 px-3 py-1 rounded-lg border text-xs font-semibold ${c.className}`}>
+      <span>{c.label}</span>
+    </div>
+  );
+}
+
+function StallListItem({ stall, index, rank }: { stall: Stall; index: number; rank?: number }) {
   const merchantAvatar = stall.merchant?.avatar;
   const avatarSrc = merchantAvatar || getDefaultAvatar(stall.id);
 
@@ -102,7 +116,7 @@ function StallListItem({ stall, index }: { stall: Stall; index: number }) {
             </div>
           </div>
 
-          <RatingChangeBadge change={stall.ratingChange} />
+          {rank ? <RankBadge rank={rank} /> : <RatingChangeBadge change={stall.ratingChange} />}
         </div>
       </Link>
     </motion.div>
@@ -176,7 +190,7 @@ export default function HomePage() {
                 : 'bg-[#F8F8F8] text-gray-600 hover:bg-gray-200'
             }`}
           >
-            全部
+            热门
           </button>
           {cafeterias?.map((cafe) => (
             <button
@@ -196,36 +210,81 @@ export default function HomePage() {
 
       <main className="px-4">
         <div className="py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-bold text-black">🔥 热门档口</h2>
-              <p className="text-xs text-gray-400 mt-0.5">今日评分较昨日变化</p>
-            </div>
-            <span className="text-sm text-gray-400">{stalls?.length || 0} 个档口</span>
-          </div>
-
-          {isLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center gap-3 py-3">
-                  <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
-                  <div className="flex-1">
-                    <Skeleton className="h-4 w-32 mb-1.5" />
-                    <Skeleton className="h-3 w-48" />
-                  </div>
+          {selectedCafeteriaId === 'all' ? (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-bold text-black">🔥 热门档口</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">全校热度排行前三</p>
                 </div>
-              ))}
-            </div>
-          ) : stalls?.length === 0 ? (
-            <div className="py-12 text-center">
-              <p className="text-gray-400">暂无档口数据</p>
-            </div>
+              </div>
+
+              {isLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center gap-3 py-3">
+                      <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
+                      <div className="flex-1">
+                        <Skeleton className="h-4 w-32 mb-1.5" />
+                        <Skeleton className="h-3 w-48" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : stalls?.length === 0 ? (
+                <div className="py-12 text-center">
+                  <p className="text-gray-400">暂无档口数据</p>
+                </div>
+              ) : (
+                <div>
+                  {stalls?.slice(0, 3).map((stall, index) => (
+                    <StallListItem key={stall.id} stall={stall} index={index} rank={index + 1} />
+                  ))}
+                </div>
+              )}
+            </>
           ) : (
-            <div>
-              {stalls?.map((stall, index) => (
-                <StallListItem key={stall.id} stall={stall} index={index} />
-              ))}
-            </div>
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-bold text-black">🔥 {cafeterias?.find(c => c.id === selectedCafeteriaId)?.name || ''}</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">本食堂热度排行</p>
+                </div>
+                <span className="text-sm text-gray-400">{stalls?.length || 0} 个档口</span>
+              </div>
+
+              {isLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center gap-3 py-3">
+                      <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
+                      <div className="flex-1">
+                        <Skeleton className="h-4 w-32 mb-1.5" />
+                        <Skeleton className="h-3 w-48" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : stalls?.length === 0 ? (
+                <div className="py-12 text-center">
+                  <p className="text-gray-400">暂无档口数据</p>
+                </div>
+              ) : (
+                <div>
+                  {stalls?.slice(0, 3).map((stall, index) => (
+                    <StallListItem key={stall.id} stall={stall} index={index} rank={index + 1} />
+                  ))}
+                  {stalls && stalls.length > 3 && (
+                    <>
+                      <div className="my-2 border-t border-gray-100" />
+                      {stalls?.slice(3).map((stall, index) => (
+                        <StallListItem key={stall.id} stall={stall} index={index + 3} />
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Plus, Edit, Trash2, UtensilsCrossed } from 'lucide-react';
+import { ImageUpload } from '@/components/common/ImageUpload';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -219,6 +220,15 @@ export default function MerchantDishesPage() {
                 />
               </div>
 
+              <div>
+                <Label>菜品图片</Label>
+                <ImageUpload
+                  images={formData.image ? [formData.image] : []}
+                  onChange={(images) => setFormData({ ...formData, image: images[0] || '' })}
+                  maxImages={1}
+                />
+              </div>
+
               <div className="flex items-center gap-2">
                 <Switch
                   checked={formData.isAvailable}
@@ -258,21 +268,28 @@ export default function MerchantDishesPage() {
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-medium">{dish.name}</h3>
-                        {!dish.isAvailable && (
-                          <Badge variant="secondary">售罄</Badge>
-                        )}
-                      </div>
-
-                      {dish.description && (
-                        <p className="text-sm text-gray-500 mt-1">{dish.description}</p>
+                    <div className="flex items-start gap-3">
+                      {dish.image && (
+                        <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                          <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
+                        </div>
                       )}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium">{dish.name}</h3>
+                          {!dish.isAvailable && (
+                            <Badge variant="secondary">售罄</Badge>
+                          )}
+                        </div>
 
-                      <div className="flex items-center gap-4 mt-2 text-sm">
-                        <span className="text-red-500 font-bold">¥{dish.price}</span>
-                        <span className="text-gray-500">{dish.totalReviews} 评价</span>
+                        {dish.description && (
+                          <p className="text-sm text-gray-500 mt-1">{dish.description}</p>
+                        )}
+
+                        <div className="flex items-center gap-4 mt-2 text-sm">
+                          <span className="text-red-500 font-bold">¥{dish.price}</span>
+                          <span className="text-gray-500">{dish.totalReviews} 评价</span>
+                        </div>
                       </div>
                     </div>
 

@@ -3,18 +3,11 @@ import { writeFile } from 'fs/promises';
 import { mkdir } from 'fs/promises';
 import path from 'path';
 import { cwd } from 'process';
-import { auth } from '@/lib/auth';
 import './uploads';
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(cwd(), 'uploads');
 
 app.post('/upload/image', async (c) => {
-  const session = await auth();
-  
-  if (!session?.user) {
-    return c.json({ success: false, error: 'Unauthorized' }, 401);
-  }
-  
   try {
     const formData = await c.req.formData();
     const file = formData.get('image') as File;
@@ -44,7 +37,7 @@ app.post('/upload/image', async (c) => {
     return c.json({
       success: true,
       data: {
-        url: `/uploads/${filename}`,
+        url: `/api/uploads/${filename}`,
         filename,
       },
     });
