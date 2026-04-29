@@ -2,7 +2,7 @@ import { app } from '@/lib/hono';
 import { db, executeSQL, querySQL } from '@/db';
 import { serializeForJson } from '@/lib/db-utils';
 import { dishes, stalls, reviews } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, like, and, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { withRetry } from '@/lib/retry';
@@ -24,6 +24,50 @@ app.get('/dishes', async (c) => {
   return c.json({ success: true, data });
 });
 
+app.get('/dishes/search', async (c) => {
+  const q = c.req.query('q')?.trim();
+  const cafeteriaIds = c.req.query('cafeteriaIds');
+
+  if (!q) {
+    return c.json({ success: true, data: [] });
+  }
+
+  const conditions: any[] = [like(dishes.name, `%${q}%`)];
+
+  if (cafeteriaIds) {
+    const ids = cafeteriaIds.split(',').filter(Boolean);
+    if (ids.length > 0) {
+      const stallsInCafeteria = await withRetry(() =>
+        (db as any).query.stalls.findMany({
+          where: inArray(stalls.cafeteriaId, ids),
+          columns: { id: true },
+        })
+      );
+      const stallIds = (stallsInCafeteria as any[]).map((s: any) => s.id);
+      if (stallIds.length > 0) {
+        conditions.push(inArray(dishes.stallId, stallIds));
+      }
+    }
+  }
+
+  const data = await withRetry(() =>
+    (db as any).query.dishes.findMany({
+      where: and(...conditions),
+      with: {
+        stall: {
+          with: {
+            cafeteria: true,
+          },
+        },
+      },
+      orderBy: desc(dishes.avgRating),
+      limit: 50,
+    })
+  );
+
+  return c.json({ success: true, data: serializeForJson(data) });
+});
+
 app.get('/dishes/:id', async (c) => {
   const id = c.req.param('id');
 
@@ -37,7 +81,6 @@ app.get('/dishes/:id', async (c) => {
     return c.json({ success: false, error: 'Dish not found' }, 404);
   }
 
-  // 获取档口信息
   const stall: any = await withRetry(() =>
     (db as any).query.stalls.findFirst({
       where: eq(stalls.id, dish.stallId),
