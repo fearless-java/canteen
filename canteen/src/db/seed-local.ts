@@ -60,13 +60,13 @@ async function seedLocal() {
   const students = await db.select().from(sqliteSchema.users).where(eq(sqliteSchema.users.role, 'student'));
 
   const stallData = [
-    { id: generateUUID(), name: '川味小炒', description: '正宗四川口味，麻辣鲜香', cafeteriaId: insertedCafeterias[0].id, merchantId: merchants[0]?.id, avgRating: '4.5', totalReviews: 128, totalViews: 500, isActive: true, createdAt: now, updatedAt: now },
-    { id: generateUUID(), name: '家常快餐', description: '营养均衡，价格实惠', cafeteriaId: insertedCafeterias[0].id, merchantId: merchants[1]?.id, avgRating: '4.2', totalReviews: 96, totalViews: 400, isActive: true, createdAt: now, updatedAt: now },
-    { id: generateUUID(), name: '麻辣烫', description: '自选菜品，汤底浓郁', cafeteriaId: insertedCafeterias[0].id, avgRating: '4.3', totalReviews: 156, totalViews: 600, isActive: true, createdAt: now, updatedAt: now },
-    { id: generateUUID(), name: '重庆小面', description: '地道重庆风味', cafeteriaId: insertedCafeterias[1].id, merchantId: merchants[2]?.id, avgRating: '4.6', totalReviews: 203, totalViews: 700, isActive: true, createdAt: now, updatedAt: now },
-    { id: generateUUID(), name: '烧烤档', description: '夜宵首选', cafeteriaId: insertedCafeterias[1].id, avgRating: '4.3', totalReviews: 178, totalViews: 550, isActive: true, createdAt: now, updatedAt: now },
-    { id: generateUUID(), name: '湘菜馆', description: '湖南特色，辣得过瘾', cafeteriaId: insertedCafeterias[2].id, merchantId: merchants[3]?.id, avgRating: '4.4', totalReviews: 167, totalViews: 480, isActive: true, createdAt: now, updatedAt: now },
-    { id: generateUUID(), name: '小吃街', description: '各地特色小吃汇集', cafeteriaId: insertedCafeterias[3].id, merchantId: merchants[4]?.id, avgRating: '4.3', totalReviews: 289, totalViews: 800, isActive: true, createdAt: now, updatedAt: now },
+    { id: generateUUID(), name: '川味小炒', description: '正宗四川口味，麻辣鲜香', cafeteriaId: insertedCafeterias[0].id, merchantId: merchants[0]?.id, avgRating: '4.5', totalReviews: 128, totalViews: 500, isActive: true, image: '/api/uploads/chuan-wei-xiao-chao.jpg', createdAt: now, updatedAt: now },
+    { id: generateUUID(), name: '家常快餐', description: '营养均衡，价格实惠', cafeteriaId: insertedCafeterias[0].id, merchantId: merchants[1]?.id, avgRating: '4.2', totalReviews: 96, totalViews: 400, isActive: true, image: '/api/uploads/jia-chang-kuai-can.jpg', createdAt: now, updatedAt: now },
+    { id: generateUUID(), name: '麻辣烫', description: '自选菜品，汤底浓郁', cafeteriaId: insertedCafeterias[0].id, avgRating: '4.3', totalReviews: 156, totalViews: 600, isActive: true, image: '/api/uploads/ma-la-tang.jpg', createdAt: now, updatedAt: now },
+    { id: generateUUID(), name: '重庆小面', description: '地道重庆风味', cafeteriaId: insertedCafeterias[1].id, merchantId: merchants[2]?.id, avgRating: '4.6', totalReviews: 203, totalViews: 700, isActive: true, image: '/api/uploads/chong-qing-xiao-mian.jpg', createdAt: now, updatedAt: now },
+    { id: generateUUID(), name: '烧烤档', description: '夜宵首选', cafeteriaId: insertedCafeterias[1].id, avgRating: '4.3', totalReviews: 178, totalViews: 550, isActive: true, image: '/api/uploads/shao-kao-dang.jpg', createdAt: now, updatedAt: now },
+    { id: generateUUID(), name: '湘菜馆', description: '湖南特色，辣得过瘾', cafeteriaId: insertedCafeterias[2].id, merchantId: merchants[3]?.id, avgRating: '4.4', totalReviews: 167, totalViews: 480, isActive: true, image: '/api/uploads/xiang-cai-guan.jpg', createdAt: now, updatedAt: now },
+    { id: generateUUID(), name: '小吃街', description: '各地特色小吃汇集', cafeteriaId: insertedCafeterias[3].id, merchantId: merchants[4]?.id, avgRating: '4.3', totalReviews: 289, totalViews: 800, isActive: true, image: '/api/uploads/xiao-chi-jie.jpg', createdAt: now, updatedAt: now },
   ];
 
   for (const item of stallData) {
@@ -77,12 +77,12 @@ async function seedLocal() {
   const insertedStalls = await db.select().from(sqliteSchema.stalls);
 
   const dishData = [
-    { id: generateUUID(), name: '宫保鸡丁', description: '经典川菜', price: '18.00', stallId: insertedStalls[0].id, avgRating: '4.6', totalReviews: 45, isAvailable: true, createdAt: now, updatedAt: now },
-    { id: generateUUID(), name: '麻婆豆腐', description: '麻辣鲜香', price: '12.00', stallId: insertedStalls[0].id, avgRating: '4.4', totalReviews: 38, isAvailable: true, createdAt: now, updatedAt: now },
-    { id: generateUUID(), name: '重庆小面', description: '麻辣鲜香', price: '10.00', stallId: insertedStalls[3].id, avgRating: '4.5', totalReviews: 67, isAvailable: true, createdAt: now, updatedAt: now },
-    { id: generateUUID(), name: '羊肉串', description: '肉质鲜嫩', price: '4.00', stallId: insertedStalls[4].id, avgRating: '4.5', totalReviews: 78, isAvailable: true, createdAt: now, updatedAt: now },
-    { id: generateUUID(), name: '剁椒鱼头', description: '湘菜代表', price: '38.00', stallId: insertedStalls[5].id, avgRating: '4.6', totalReviews: 52, isAvailable: true, createdAt: now, updatedAt: now },
-    { id: generateUUID(), name: '臭豆腐', description: '闻着臭吃着香', price: '10.00', stallId: insertedStalls[6].id, avgRating: '4.3', totalReviews: 52, isAvailable: true, createdAt: now, updatedAt: now },
+    { id: generateUUID(), name: '宫保鸡丁', description: '经典川菜', price: '18.00', stallId: insertedStalls[0].id, avgRating: '4.6', totalReviews: 45, isAvailable: true, image: '/api/uploads/gong-bao-ji-ding.jpg', createdAt: now, updatedAt: now },
+    { id: generateUUID(), name: '麻婆豆腐', description: '麻辣鲜香', price: '12.00', stallId: insertedStalls[0].id, avgRating: '4.4', totalReviews: 38, isAvailable: true, image: '/api/uploads/ma-po-dou-fu.jpg', createdAt: now, updatedAt: now },
+    { id: generateUUID(), name: '重庆小面', description: '麻辣鲜香', price: '10.00', stallId: insertedStalls[3].id, avgRating: '4.5', totalReviews: 67, isAvailable: true, image: '/api/uploads/chong-qing-xiao-mian.jpg', createdAt: now, updatedAt: now },
+    { id: generateUUID(), name: '羊肉串', description: '肉质鲜嫩', price: '4.00', stallId: insertedStalls[4].id, avgRating: '4.5', totalReviews: 78, isAvailable: true, image: '/api/uploads/yang-rou-chuan.jpg', createdAt: now, updatedAt: now },
+    { id: generateUUID(), name: '剁椒鱼头', description: '湘菜代表', price: '38.00', stallId: insertedStalls[5].id, avgRating: '4.6', totalReviews: 52, isAvailable: true, image: '/api/uploads/duo-jiao-yu-tou.jpg', createdAt: now, updatedAt: now },
+    { id: generateUUID(), name: '臭豆腐', description: '闻着臭吃着香', price: '10.00', stallId: insertedStalls[6].id, avgRating: '4.3', totalReviews: 52, isAvailable: true, image: '/api/uploads/chou-dou-fu.jpg', createdAt: now, updatedAt: now },
   ];
 
   for (const item of dishData) {
