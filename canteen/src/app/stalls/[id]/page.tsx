@@ -457,11 +457,20 @@ export default function StallDetailPage() {
               <p className="text-gray-400">暂无评价</p>
             </div>
           ) : (
-            <div>
-              {stall.recentReviews?.map((review, index) => (
-                <ReviewItem key={review.id} review={review} index={index} stallId={stall.id} sessionRole={session?.user?.role} />
-              ))}
-            </div>
+            <>
+              <div>
+                {stall.recentReviews?.map((review, index) => (
+                  <ReviewItem key={review.id} review={review} index={index} stallId={stall.id} sessionRole={session?.user?.role} />
+                ))}
+              </div>
+              {stall.totalReviews > stall.recentReviews.length && (
+                <Link href={`/stalls/${stall.id}/reviews`}>
+                  <div className="py-3 text-center text-sm text-[#D97706] font-medium hover:text-[#B45309] transition-colors border-t border-[#EEEEEE] mt-2">
+                    查看全部{stall.totalReviews}条评价 <ChevronRight className="w-4 h-4 inline-block" />
+                  </div>
+                </Link>
+              )}
+            </>
           )}
         </div>
       </motion.div>

@@ -81,7 +81,7 @@ app.get('/stalls/ranked', async (c) => {
       (db as any).query.rankingSnapshots.findMany({
         where: eq(rankingSnapshots.snapshotDate, yesterdayStr),
       })
-    );
+    ) as any[];
 
     if (snapshots && snapshots.length > 0) {
       const snapshotMap = new Map<string, number>();
