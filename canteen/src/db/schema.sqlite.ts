@@ -1,4 +1,4 @@
-import { text, integer, sqliteTable, primaryKey } from 'drizzle-orm/sqlite-core';
+import { text, integer, real, sqliteTable, primaryKey } from 'drizzle-orm/sqlite-core';
 import { relations } from 'drizzle-orm';
 
 export const users = sqliteTable('users', {
@@ -73,8 +73,20 @@ export const reviewLikes = sqliteTable('review_likes', {
 
 export const favorites = sqliteTable('favorites', {
   id: text('id').primaryKey(),
-  studentId: text('student_id').notNull(),
+  userId: text('user_id').notNull(),
   stallId: text('stall_id').notNull(),
+  createdAt: integer('created_at').notNull(),
+});
+
+export const rankingSnapshots = sqliteTable('ranking_snapshots', {
+  id: text('id').primaryKey(),
+  stallId: text('stall_id').notNull(),
+  score: real('score').notNull(),
+  rank: integer('rank').notNull(),
+  avgRating: text('avg_rating').notNull(),
+  totalReviews: integer('total_reviews').notNull(),
+  totalViews: integer('total_views').notNull(),
+  snapshotDate: text('snapshot_date').notNull(),
   createdAt: integer('created_at').notNull(),
 });
 
@@ -149,12 +161,19 @@ export const reviewLikesRelations = relations(reviewLikes, ({ one }) => ({
 }));
 
 export const favoritesRelations = relations(favorites, ({ one }) => ({
-  student: one(users, {
-    fields: [favorites.studentId],
+  user: one(users, {
+    fields: [favorites.userId],
     references: [users.id],
   }),
   stall: one(stalls, {
     fields: [favorites.stallId],
+    references: [stalls.id],
+  }),
+}));
+
+export const rankingSnapshotsRelations = relations(rankingSnapshots, ({ one }) => ({
+  stall: one(stalls, {
+    fields: [rankingSnapshots.stallId],
     references: [stalls.id],
   }),
 }));
@@ -175,3 +194,4 @@ export type Review = typeof reviews.$inferSelect;
 export type ReviewLike = typeof reviewLikes.$inferSelect;
 export type Favorite = typeof favorites.$inferSelect;
 export type Message = typeof messages.$inferSelect;
+export type RankingSnapshot = typeof rankingSnapshots.$inferSelect;

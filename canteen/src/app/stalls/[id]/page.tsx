@@ -279,6 +279,9 @@ export default function StallDetailPage() {
   const params = useParams();
   const stallId = params.id as string;
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [favoriting, setFavoriting] = useState(false);
 
   const { data: stall, isLoading } = useQuery<StallDetail>({
     queryKey: ['stall', stallId],
@@ -287,7 +290,42 @@ export default function StallDetailPage() {
       const json = await res.json();
       return json.data;
     },
+    staleTime: 0,
   });
+
+  useQuery({
+    queryKey: ['favorites', 'check', stallId],
+    queryFn: async () => {
+      const res = await fetch(`/api/favorites/check?stallId=${stallId}`);
+      const json = await res.json();
+      if (json.success) setIsFavorited(json.data.favorited);
+      return json.data;
+    },
+    enabled: !!session?.user,
+  });
+
+  const handleFavorite = async () => {
+    if (favoriting) return;
+    setFavoriting(true);
+    const prevFavorited = isFavorited;
+    setIsFavorited(!isFavorited);
+    try {
+      if (prevFavorited) {
+        await fetch(`/api/favorites?stallId=${stallId}`, { method: 'DELETE' });
+      } else {
+        await fetch('/api/favorites', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stallId }),
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ['stats', 'my'] });
+    } catch {
+      setIsFavorited(prevFavorited);
+    } finally {
+      setFavoriting(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -344,7 +382,20 @@ export default function StallDetailPage() {
       >
         <div className="py-4 border-b border-[#EEEEEE]">
           <div className="flex items-start justify-between">
-            <h1 className="text-xl font-bold text-black">{stall.name}</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold text-black">{stall.name}</h1>
+              {session?.user && (
+                <button
+                  onClick={handleFavorite}
+                  disabled={favoriting}
+                  className={`p-1 rounded-full transition-colors ${
+                    isFavorited ? 'text-red-500' : 'text-gray-300 hover:text-red-400'
+                  }`}
+                >
+                  <Heart className={`w-5 h-5 ${isFavorited ? 'fill-red-500' : ''}`} />
+                </button>
+              )}
+            </div>
             <div className="flex items-center gap-1.5">
               <Circle className={`w-2 h-2 rounded-full ${stall.isActive ? 'text-[#059669] fill-[#059669]' : 'text-gray-300 fill-gray-300'}`} />
               <span className={`text-sm ${stall.isActive ? 'text-[#059669]' : 'text-gray-400'}`}>

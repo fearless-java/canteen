@@ -124,26 +124,29 @@ export default function ProfilePage() {
     );
   }
 
-  const menuItems: MenuItemProps[] = [
-    {
+  const menuItems: MenuItemProps[] = [];
+
+  if (session.user.role !== 'merchant') {
+    menuItems.push({
       href: '/profile/reviews',
       icon: <User className="w-5 h-5" />,
       title: '我的评价',
       badge: stats ? `${stats.reviews}条` : undefined,
-    },
-    {
-      href: '/profile/favorites',
-      icon: <Heart className="w-5 h-5" />,
-      title: '我的收藏',
-      badge: stats ? `${stats.favorites}个` : undefined,
-    },
-    {
-      href: '/messages',
-      icon: <MessageCircle className="w-5 h-5" />,
-      title: '消息通知',
-      badge: stats?.unreadMessages ? `${stats.unreadMessages}条` : undefined,
-    },
-  ];
+    });
+  }
+
+  menuItems.push({
+    href: '/profile/favorites',
+    icon: <Heart className="w-5 h-5" />,
+    title: '我的收藏',
+    badge: stats ? `${stats.favorites}个` : undefined,
+  });
+  menuItems.push({
+    href: '/messages',
+    icon: <MessageCircle className="w-5 h-5" />,
+    title: '消息通知',
+    badge: stats?.unreadMessages ? `${stats.unreadMessages}条` : undefined,
+  });
 
   if (session.user.role === 'merchant') {
     menuItems.push({

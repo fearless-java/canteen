@@ -100,10 +100,10 @@ CREATE TABLE IF NOT EXISTS review_likes (
 -- Favorites table
 CREATE TABLE IF NOT EXISTS favorites (
   id TEXT PRIMARY KEY,
-  student_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
   stall_id TEXT NOT NULL,
   created_at INTEGER NOT NULL,
-  FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (stall_id) REFERENCES stalls(id) ON DELETE CASCADE
 );
 
@@ -117,6 +117,20 @@ CREATE TABLE IF NOT EXISTS messages (
   is_read INTEGER DEFAULT 0 NOT NULL,
   created_at INTEGER NOT NULL,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Ranking snapshots table
+CREATE TABLE IF NOT EXISTS ranking_snapshots (
+  id TEXT PRIMARY KEY,
+  stall_id TEXT NOT NULL,
+  score REAL NOT NULL,
+  rank INTEGER NOT NULL,
+  avg_rating TEXT NOT NULL,
+  total_reviews INTEGER NOT NULL,
+  total_views INTEGER NOT NULL,
+  snapshot_date TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY (stall_id) REFERENCES stalls(id)
 );
 `;
 

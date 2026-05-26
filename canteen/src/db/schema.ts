@@ -81,8 +81,20 @@ export const reviewLikes = pgTable('review_likes', {
 
 export const favorites = pgTable('favorites', {
   id: uuid('id').primaryKey().defaultRandom(),
-  studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   stallId: uuid('stall_id').notNull().references(() => stalls.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const rankingSnapshots = pgTable('ranking_snapshots', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  stallId: uuid('stall_id').notNull().references(() => stalls.id),
+  score: decimal('score', { precision: 10, scale: 2 }).notNull(),
+  rank: integer('rank').notNull(),
+  avgRating: decimal('avg_rating', { precision: 2, scale: 1 }).notNull(),
+  totalReviews: integer('total_reviews').notNull(),
+  totalViews: integer('total_views').notNull(),
+  snapshotDate: varchar('snapshot_date', { length: 10 }).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -158,12 +170,19 @@ export const reviewLikesRelations = relations(reviewLikes, ({ one }) => ({
 }));
 
 export const favoritesRelations = relations(favorites, ({ one }) => ({
-  student: one(users, {
-    fields: [favorites.studentId],
+  user: one(users, {
+    fields: [favorites.userId],
     references: [users.id],
   }),
   stall: one(stalls, {
     fields: [favorites.stallId],
+    references: [stalls.id],
+  }),
+}));
+
+export const rankingSnapshotsRelations = relations(rankingSnapshots, ({ one }) => ({
+  stall: one(stalls, {
+    fields: [rankingSnapshots.stallId],
     references: [stalls.id],
   }),
 }));
@@ -184,3 +203,4 @@ export type Review = typeof reviews.$inferSelect;
 export type ReviewLike = typeof reviewLikes.$inferSelect;
 export type Favorite = typeof favorites.$inferSelect;
 export type Message = typeof messages.$inferSelect;
+export type RankingSnapshot = typeof rankingSnapshots.$inferSelect;

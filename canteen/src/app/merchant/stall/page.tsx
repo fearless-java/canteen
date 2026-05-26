@@ -41,7 +41,8 @@ export default function MerchantStallPage() {
     queryFn: async () => {
       const res = await fetch('/api/merchant/stall');
       const json = await res.json();
-      return json.data;
+      if (!json.success) throw new Error(json.error || '请求失败');
+      return json.data ?? null;
     },
   });
 

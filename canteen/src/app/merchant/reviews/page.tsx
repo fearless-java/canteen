@@ -41,7 +41,8 @@ export default function MerchantReviewsPage() {
     queryFn: async () => {
       const res = await fetch('/api/merchant/reviews');
       const json = await res.json();
-      return json.data;
+      if (!json.success) throw new Error(json.error || '请求失败');
+      return json.data ?? [];
     },
   });
 
@@ -52,10 +53,17 @@ export default function MerchantReviewsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reply }),
       });
-      return res.json();
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || '回复失败');
+      return json;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['merchant', 'reviews'] });
+      const stallId = data?.data?.stallId;
+      if (stallId) {
+        queryClient.invalidateQueries({ queryKey: ['stall', stallId] });
+      }
+      queryClient.invalidateQueries({ queryKey: ['stall'], refetchType: 'all' });
       setReplyingReview(null);
       setReplyContent('');
     },

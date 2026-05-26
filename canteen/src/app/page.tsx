@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Settings, Star, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Settings, Star, TrendingUp, TrendingDown, Minus, Heart } from 'lucide-react';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getDefaultAvatar } from '@/lib/utils';
@@ -84,9 +85,10 @@ function RankBadge({ rank }: { rank: number }) {
   );
 }
 
-function StallListItem({ stall, index, rank }: { stall: Stall; index: number; rank?: number }) {
+function StallListItem({ stall, index, rank, favoritedStallIds }: { stall: Stall; index: number; rank?: number; favoritedStallIds: Set<string> }) {
   const merchantAvatar = stall.merchant?.avatar;
   const avatarSrc = merchantAvatar || getDefaultAvatar(stall.id);
+  const isFavorited = favoritedStallIds.has(stall.id);
 
   return (
     <motion.div
@@ -116,6 +118,9 @@ function StallListItem({ stall, index, rank }: { stall: Stall; index: number; ra
             </div>
           </div>
 
+          {isFavorited && (
+            <Heart className="w-4 h-4 text-red-500 fill-red-500 flex-shrink-0" />
+          )}
           {rank ? <RankBadge rank={rank} /> : <RatingChangeBadge change={stall.ratingChange} />}
         </div>
       </Link>
@@ -126,6 +131,7 @@ function StallListItem({ stall, index, rank }: { stall: Stall; index: number; ra
 export default function HomePage() {
   const [selectedCafeteriaId, setSelectedCafeteriaId] = useState<string>('all');
   const [hasSeenLanding, setHasSeenLanding] = useState<boolean | null>(null);
+  const { data: session } = useSession();
 
   useEffect(() => {
     const skipLanding = localStorage.getItem('skipLanding');
@@ -159,6 +165,18 @@ export default function HomePage() {
     },
     enabled: !!selectedCafeteriaId || cafeterias !== undefined,
   });
+
+  const { data: favoritedStallIds } = useQuery<string[]>({
+    queryKey: ['favorites', 'ids'],
+    queryFn: async () => {
+      const res = await fetch('/api/favorites');
+      const json = await res.json();
+      return (json.data ?? []).map((f: any) => f.stallId);
+    },
+    enabled: !!session?.user,
+  });
+
+  const favoritedSet = new Set(favoritedStallIds ?? []);
 
   if (hasSeenLanding === null) {
     return <div className="min-h-screen bg-white" />;
@@ -238,7 +256,7 @@ export default function HomePage() {
               ) : (
                 <div>
                   {stalls?.slice(0, 3).map((stall, index) => (
-                    <StallListItem key={stall.id} stall={stall} index={index} rank={index + 1} />
+                    <StallListItem key={stall.id} stall={stall} index={index} rank={index + 1} favoritedStallIds={favoritedSet} />
                   ))}
                 </div>
               )}
@@ -272,13 +290,13 @@ export default function HomePage() {
               ) : (
                 <div>
                   {stalls?.slice(0, 3).map((stall, index) => (
-                    <StallListItem key={stall.id} stall={stall} index={index} rank={index + 1} />
+                    <StallListItem key={stall.id} stall={stall} index={index} rank={index + 1} favoritedStallIds={favoritedSet} />
                   ))}
                   {stalls && stalls.length > 3 && (
                     <>
                       <div className="my-2 border-t border-gray-100" />
                       {stalls?.slice(3).map((stall, index) => (
-                        <StallListItem key={stall.id} stall={stall} index={index + 3} />
+                        <StallListItem key={stall.id} stall={stall} index={index + 3} favoritedStallIds={favoritedSet} />
                       ))}
                     </>
                   )}

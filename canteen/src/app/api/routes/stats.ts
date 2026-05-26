@@ -28,7 +28,7 @@ app.get('/stats/my', async (c) => {
 
   try {
     const favoriteResult: any[] = await querySQL(
-      'SELECT COUNT(*) as count FROM favorites WHERE student_id = ?',
+      'SELECT COUNT(*) as count FROM favorites WHERE user_id = ?',
       [userId]
     );
     favoriteCount = favoriteResult[0]?.count || 0;

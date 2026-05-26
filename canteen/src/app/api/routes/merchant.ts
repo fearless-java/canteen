@@ -1,7 +1,7 @@
 import { app } from '@/lib/hono';
-import { db, sqliteSchema } from '@/db';
+import { db, sqliteSchema, querySQL } from '@/db';
 import { stalls, reviews, dishes } from '@/db/schema';
-import { eq, and, gte } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { withRetry } from '@/lib/retry';
 import { serializeForJson } from '@/lib/db-utils';
@@ -79,27 +79,32 @@ app.get('/merchant/stats', async (c) => {
     return c.json({ success: false, error: 'No stall found' }, 404);
   }
 
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const sevenDaysAgoMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
-  const recentReviews = await withRetry(() =>
-    (db as any).query.reviews.findMany({
-      where: and(
-        eq(reviews.stallId, (stall as any).id),
-        gte(reviews.createdAt, sevenDaysAgo)
-      ),
-    })
+  const recentReviewsRows = await withRetry(() =>
+    querySQL(
+      'SELECT id, student_id AS studentId, stall_id AS stallId, dish_id AS dishId, rating, content, images, likes, merchant_reply AS merchantReply, replied_at AS repliedAt, created_at AS createdAt, updated_at AS updatedAt FROM reviews WHERE stall_id = ? AND created_at >= ?',
+      [(stall as any).id, sevenDaysAgoMs]
+    )
   );
+  const recentReviews = recentReviewsRows as any[];
 
   const ratingTrend = [];
   for (let i = 6; i >= 0; i--) {
     const date = new Date();
     date.setDate(date.getDate() - i);
-    const dateStr = date.toISOString().split('T')[0];
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${y}-${m}-${d}`;
 
-    const dayReviews = (recentReviews as any[]).filter((r: any) =>
-      new Date(r.createdAt).toISOString().startsWith(dateStr)
-    );
+    const dayReviews = (recentReviews as any[]).filter((r: any) => {
+      const rd = new Date(r.createdAt);
+      const ry = rd.getFullYear();
+      const rm = String(rd.getMonth() + 1).padStart(2, '0');
+      const rdd = String(rd.getDate()).padStart(2, '0');
+      return `${ry}-${rm}-${rdd}` === dateStr;
+    });
 
     const avgRating =
       dayReviews.length > 0

@@ -283,6 +283,10 @@ app.get('/reviews/my', async (c) => {
     return c.json({ success: false, error: 'Unauthorized' }, 401);
   }
 
+  if (session.user.role === 'merchant') {
+    return c.json({ success: true, data: [] });
+  }
+
   const data = await withRetry(() =>
     (db as any).query.reviews.findMany({
       where: eq(reviews.studentId, session.user.id),
@@ -352,7 +356,7 @@ app.post('/reviews/:id/reply', async (c) => {
   }
 
   const [updated] = await (db as any)
-    .update(reviews)
+    .update(isLocalDB ? sqliteSchema.reviews : reviews)
     .set({
       merchantReply: reply,
       repliedAt: isLocalDB ? Date.now() : new Date(),
