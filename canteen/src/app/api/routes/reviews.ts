@@ -409,7 +409,7 @@ app.post('/reviews/:id/reply', async (c) => {
     actorName: session.user.name,
     actorAvatar: session.user.avatar || null,
     linkType: 'review',
-    linkId: reviewId,
+    linkId: (review as any).stallId,
     isRead: false,
     createdAt: isLocalDB ? Date.now() : new Date(),
   });

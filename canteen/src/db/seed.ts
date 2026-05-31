@@ -302,7 +302,7 @@ async function seed() {
       actorName: merchants[0].name,
       actorAvatar: merchants[0].avatar || null,
       linkType: 'review',
-      linkId: '00000000-0000-0000-0000-000000000001',
+      linkId: insertedStalls[0].id,
       isRead: i === 0,
       createdAt: new Date(Date.now() - 3600000 * (i + 1)),
     },
