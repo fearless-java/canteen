@@ -208,7 +208,7 @@ export default function HomePage() {
                 : 'bg-[#F8F8F8] text-gray-600 hover:bg-gray-200'
             }`}
           >
-            搜索
+            热门
           </button>
           {cafeterias?.map((cafe) => (
             <button
