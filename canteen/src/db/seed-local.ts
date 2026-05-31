@@ -301,6 +301,56 @@ async function seedLocal() {
   }
   console.log(`✅ Inserted ranking snapshots for ${todayStr} and ${yesterdayStr}`);
 
+  const messageData = students.slice(0, 2).flatMap((student, i) => [
+    {
+      id: generateUUID(),
+      userId: student.id,
+      type: 'review_reply',
+      title: '川味小炒 回复了你的评价',
+      content: '感谢你的好评！我们会继续努力的~',
+      actorId: merchants[0]?.id || null,
+      actorName: merchants[0]?.name || null,
+      actorAvatar: merchants[0]?.avatar || null,
+      linkType: 'review',
+      linkId: insertedStalls[0]?.id || null,
+      isRead: i === 0,
+      createdAt: nowMs - 3600000 * (i + 1),
+    },
+    {
+      id: generateUUID(),
+      userId: student.id,
+      type: 'review_like',
+      title: `${students[(i + 1) % 5]?.name || '同学'} 点赞了`,
+      content: '',
+      actorId: students[(i + 1) % 5]?.id || null,
+      actorName: students[(i + 1) % 5]?.name || null,
+      actorAvatar: null,
+      linkType: 'stall',
+      linkId: insertedStalls[0]?.id || null,
+      isRead: false,
+      createdAt: nowMs - 7200000 * (i + 1),
+    },
+    {
+      id: generateUUID(),
+      userId: student.id,
+      type: 'system',
+      title: '欢迎加入校园食堂',
+      content: '欢迎使用校园食堂！在这里你可以探索美食、分享评价、收藏你喜欢的档口。',
+      actorId: null,
+      actorName: null,
+      actorAvatar: null,
+      linkType: null,
+      linkId: null,
+      isRead: true,
+      createdAt: nowMs - 86400000 * (i + 1),
+    },
+  ]);
+
+  for (const item of messageData) {
+    await db.insert(sqliteSchema.messages).values(item);
+  }
+  console.log(`✅ Inserted ${messageData.length} messages`);
+
   console.log('\n✅ Seeding completed!');
   console.log('\nDemo accounts:');
   console.log('  Merchants: merchant1@example.com / password123');

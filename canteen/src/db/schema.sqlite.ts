@@ -96,6 +96,11 @@ export const messages = sqliteTable('messages', {
   type: text('type').notNull(),
   title: text('title').notNull(),
   content: text('content').notNull(),
+  actorId: text('actor_id'),
+  actorName: text('actor_name'),
+  actorAvatar: text('actor_avatar'),
+  linkType: text('link_type'),
+  linkId: text('link_id'),
   isRead: integer('is_read', { mode: 'boolean' }).default(false).notNull(),
   createdAt: integer('created_at').notNull(),
 });

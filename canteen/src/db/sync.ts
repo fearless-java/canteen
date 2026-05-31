@@ -149,6 +149,9 @@ async function migrateToLocal() {
   for (const item of data.messages) {
     sqliteDb.insert(sqliteSchema.messages).values({
       ...item,
+      actorAvatar: item.actorAvatar || null,
+      linkType: item.linkType || null,
+      linkId: item.linkId || null,
       createdAt: new Date(item.createdAt),
     }).run();
   }

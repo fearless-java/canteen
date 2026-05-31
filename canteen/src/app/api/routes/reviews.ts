@@ -1,6 +1,6 @@
 import { app } from '@/lib/hono';
 import { db, sqliteSchema, isLocalDB } from '@/db';
-import { reviews, stalls, dishes, reviewLikes } from '@/db/schema';
+import { reviews, stalls, dishes, reviewLikes, messages } from '@/db/schema';
 import { eq, desc, and, sql, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
@@ -272,6 +272,40 @@ app.post('/reviews/:id/like', async (c) => {
       .set({ likes: sql`${reviews.likes} + 1` })
       .where(eq(reviews.id, reviewId));
 
+    try {
+      const targetReview = await withRetry(() =>
+        (db as any).query.reviews.findFirst({
+          where: eq(reviews.id, reviewId),
+          with: {
+            student: { columns: { id: true } },
+            stall: { columns: { id: true, name: true } },
+            dish: { columns: { id: true, name: true } },
+          },
+        })
+      );
+
+      if (targetReview && (targetReview as any).student.id !== session.user.id) {
+        const r = targetReview as any;
+        const targetName = r.dish?.name || r.stall?.name || '评价';
+        await (db as any).insert(isLocalDB ? sqliteSchema.messages : messages).values({
+          id: crypto.randomUUID(),
+          userId: r.student.id,
+          type: 'review_like',
+          title: `${session.user.name} 点赞了${targetName}`,
+          content: '',
+          actorId: session.user.id,
+          actorName: session.user.name,
+          actorAvatar: session.user.avatar || null,
+          linkType: 'stall',
+          linkId: r.stall.id,
+          isRead: false,
+          createdAt: isLocalDB ? Date.now() : new Date(),
+        });
+      }
+    } catch (e) {
+      console.error('Failed to create like notification:', e);
+    }
+
     return c.json({ success: true, liked: true });
   }
 });
@@ -363,6 +397,22 @@ app.post('/reviews/:id/reply', async (c) => {
     })
     .where(eq(reviews.id, reviewId))
     .returning();
+
+  const stallName = (review as any).stall?.name || '档口';
+  await (db as any).insert(isLocalDB ? sqliteSchema.messages : messages).values({
+    id: crypto.randomUUID(),
+    userId: (review as any).studentId,
+    type: 'review_reply',
+    title: `${stallName} 回复了你的评价`,
+    content: reply,
+    actorId: session.user.id,
+    actorName: session.user.name,
+    actorAvatar: session.user.avatar || null,
+    linkType: 'review',
+    linkId: reviewId,
+    isRead: false,
+    createdAt: isLocalDB ? Date.now() : new Date(),
+  });
 
   return c.json({ success: true, data: updated });
 });

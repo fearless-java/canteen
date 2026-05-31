@@ -23,7 +23,7 @@ app.get('/messages', async (c) => {
     return c.json({ success: true, data });
   } catch (error) {
     console.error('Failed to fetch messages:', error);
-    return c.json({ success: true, data: [] });
+    return c.json({ success: false, error: '获取消息失败，请稍后重试' }, 500);
   }
 });
 
@@ -49,7 +49,7 @@ app.get('/messages/unread-count', async (c) => {
     return c.json({ success: true, data: { count } });
   } catch (error) {
     console.error('Failed to fetch unread count:', error);
-    return c.json({ success: true, data: { count: 0 } });
+    return c.json({ success: false, error: '获取未读消息数失败' }, 500);
   }
 });
 

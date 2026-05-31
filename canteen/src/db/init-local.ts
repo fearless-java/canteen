@@ -114,9 +114,15 @@ CREATE TABLE IF NOT EXISTS messages (
   type TEXT NOT NULL,
   title TEXT NOT NULL,
   content TEXT NOT NULL,
+  actor_id TEXT,
+  actor_name TEXT,
+  actor_avatar TEXT,
+  link_type TEXT,
+  link_id TEXT,
   is_read INTEGER DEFAULT 0 NOT NULL,
   created_at INTEGER NOT NULL,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- Ranking snapshots table

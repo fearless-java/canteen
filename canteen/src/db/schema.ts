@@ -104,6 +104,11 @@ export const messages = pgTable('messages', {
   type: varchar('type', { length: 50 }).notNull(),
   title: varchar('title', { length: 200 }).notNull(),
   content: text('content').notNull(),
+  actorId: uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
+  actorName: varchar('actor_name', { length: 100 }),
+  actorAvatar: varchar('actor_avatar', { length: 500 }),
+  linkType: varchar('link_type', { length: 50 }),
+  linkId: uuid('link_id'),
   isRead: boolean('is_read').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });

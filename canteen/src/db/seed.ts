@@ -1,5 +1,5 @@
 import { db } from './index';
-import { cafeterias, stalls, dishes, users, reviews } from './schema';
+import { cafeterias, stalls, dishes, users, reviews, messages } from './schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 
@@ -291,6 +291,50 @@ async function seed() {
         .where(eq(stalls.id, stall.id));
     }
   }
+
+  const messageData = students.slice(0, 2).flatMap((student, i) => [
+    {
+      userId: student.id,
+      type: 'review_reply',
+      title: '川味小炒 回复了你的评价',
+      content: '感谢你的好评！我们会继续努力的~',
+      actorId: merchants[0].id,
+      actorName: merchants[0].name,
+      actorAvatar: merchants[0].avatar || null,
+      linkType: 'review',
+      linkId: '00000000-0000-0000-0000-000000000001',
+      isRead: i === 0,
+      createdAt: new Date(Date.now() - 3600000 * (i + 1)),
+    },
+    {
+      userId: student.id,
+      type: 'review_like',
+      title: `${students[(i + 1) % 5].name} 点赞了`,
+      content: '',
+      actorId: students[(i + 1) % 5].id,
+      actorName: students[(i + 1) % 5].name,
+      actorAvatar: null,
+      linkType: 'stall',
+      linkId: insertedStalls[0].id,
+      isRead: false,
+      createdAt: new Date(Date.now() - 7200000 * (i + 1)),
+    },
+    {
+      userId: student.id,
+      type: 'system',
+      title: '欢迎加入校园食堂',
+      content: '欢迎使用校园食堂！在这里你可以探索美食、分享评价、收藏你喜欢的档口。',
+      actorId: null,
+      actorName: null,
+      actorAvatar: null,
+      linkType: null,
+      linkId: null,
+      isRead: true,
+      createdAt: new Date(Date.now() - 86400000 * (i + 1)),
+    },
+  ]);
+  await db.insert(messages).values(messageData);
+  console.log(`✅ Inserted ${messageData.length} messages`);
 
   console.log('\n✅ Seeding completed!');
   console.log('\nDemo accounts:');

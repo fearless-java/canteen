@@ -1,27 +1,34 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BottomNav } from '@/components/layout/BottomNav';
-import { Bell, MessageCircle, Check, Trash2, Loader2 } from 'lucide-react';
+import { Bell, MessageCircle, Heart, Check, Trash2, Loader2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getDefaultAvatar } from '@/lib/utils';
 
-interface Message {
+interface MessageData {
   id: string;
   userId: string;
   type: string;
   title: string;
   content: string;
+  actorId: string | null;
+  actorName: string | null;
+  actorAvatar: string | null;
+  linkType: string | null;
+  linkId: string | null;
   isRead: boolean;
   createdAt: string;
 }
 
 export default function MessagesPage() {
   const { data: session } = useSession();
+  const router = useRouter();
   const queryClient = useQueryClient();
 
-  const { data: messages, isLoading } = useQuery<Message[]>({
+  const { data: messages, isLoading } = useQuery<MessageData[]>({
     queryKey: ['messages'],
     queryFn: async () => {
       const res = await fetch('/api/messages');
@@ -43,7 +50,8 @@ export default function MessagesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['messages'] });
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      queryClient.invalidateQueries({ queryKey: ['messages', 'unread-count'] });
+      queryClient.invalidateQueries({ queryKey: ['stats', 'my'] });
     },
   });
 
@@ -58,7 +66,8 @@ export default function MessagesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['messages'] });
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      queryClient.invalidateQueries({ queryKey: ['messages', 'unread-count'] });
+      queryClient.invalidateQueries({ queryKey: ['stats', 'my'] });
     },
   });
 
@@ -73,18 +82,58 @@ export default function MessagesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['messages'] });
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      queryClient.invalidateQueries({ queryKey: ['messages', 'unread-count'] });
+      queryClient.invalidateQueries({ queryKey: ['stats', 'my'] });
     },
   });
 
   const getMessageIcon = (type: string) => {
     switch (type) {
       case 'review_reply':
-        return <MessageCircle className="w-5 h-5 text-[#D97706]" />;
+        return <MessageCircle className="w-4 h-4 text-[#D97706]" />;
+      case 'review_like':
+        return <Heart className="w-4 h-4 text-red-500" />;
       case 'system':
-        return <Bell className="w-5 h-5 text-blue-500" />;
+        return <Bell className="w-4 h-4 text-blue-500" />;
       default:
-        return <Bell className="w-5 h-5 text-gray-400" />;
+        return <Bell className="w-4 h-4 text-gray-400" />;
+    }
+  };
+
+  const getActionText = (message: MessageData) => {
+    switch (message.type) {
+      case 'review_reply':
+        return (
+          <>
+            <span className="font-semibold text-black">{message.actorName || '商家'}</span>
+            {' 回复了你的评价'}
+          </>
+        );
+      case 'review_like':
+        return (
+          <>
+            <span className="font-semibold text-black">{message.actorName || '同学'}</span>
+            {' 点赞了'}
+          </>
+        );
+      case 'system':
+        return <span className="text-gray-500">系统通知</span>;
+      default:
+        return <span className="text-gray-500">{message.title}</span>;
+    }
+  };
+
+  const getLinkPath = (message: MessageData): string | null => {
+    if (!message.linkType || !message.linkId) return null;
+    switch (message.linkType) {
+      case 'stall':
+        return `/stalls/${message.linkId}`;
+      case 'dish':
+        return `/dishes/${message.linkId}`;
+      case 'review':
+        return `/stalls/${message.linkId}#reviews`;
+      default:
+        return null;
     }
   };
 
@@ -114,11 +163,6 @@ export default function MessagesPage() {
           <Bell className="w-10 h-10 text-gray-400" />
         </div>
         <p className="text-gray-500 mb-6">请先登录查看消息</p>
-        <Link href="/login">
-          <button className="w-full h-[52px] bg-[#D97706] text-white font-semibold text-base rounded-full transition-all duration-200">
-            去登录
-          </button>
-        </Link>
         <BottomNav />
       </div>
     );
@@ -146,73 +190,101 @@ export default function MessagesPage() {
           <Loader2 className="w-8 h-8 text-[#D97706] animate-spin" />
         </div>
       ) : messages && messages.length > 0 ? (
-        <div className="divide-y divide-[#EEEEEE]">
+        <div className="divide-y divide-[#F0F0F0]">
           <AnimatePresence>
-            {messages.map((message) => (
-              <motion.div
-                key={message.id}
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="relative"
-              >
-                <Link href={`/messages/${message.id}`}>
+            {messages.map((message) => {
+              const linkPath = getLinkPath(message);
+              return (
+                <motion.div
+                  key={message.id}
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="relative"
+                >
                   <div
-                    className={`px-4 py-4 active:bg-[#F8F8F8] transition-colors ${
+                    onClick={async () => {
+                      if (!message.isRead) {
+                        markAsReadMutation.mutate(message.id);
+                      }
+                      if (linkPath) {
+                        router.push(linkPath);
+                      }
+                    }}
+                    className={`px-4 py-3.5 active:bg-[#F8F8F8] transition-colors cursor-pointer ${
                       !message.isRead ? 'bg-[#FFF8ED]' : ''
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 bg-[#F8F8F8] rounded-full flex items-center justify-center flex-shrink-0">
-                        {getMessageIcon(message.type)}
+                      <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-[#F8F8F8]">
+                        {message.actorAvatar ? (
+                          <img
+                            src={message.actorAvatar}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <img
+                            src={getDefaultAvatar(message.actorId || message.id)}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        )}
                       </div>
+
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <h3
-                            className={`text-base truncate ${
-                              !message.isRead ? 'font-bold text-black' : 'font-medium text-gray-700'
-                            }`}
-                          >
-                            {message.title}
-                          </h3>
+                        <div className="flex items-center justify-between gap-2 mb-0.5">
+                          <p className="text-[15px] text-gray-700 truncate">
+                            {getActionText(message)}
+                          </p>
                           <span className="text-xs text-gray-400 flex-shrink-0">
                             {formatDate(message.createdAt)}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-500 mt-1 line-clamp-2">
-                          {message.content}
-                        </p>
+
+                        {message.content && (
+                          <p className="text-sm text-gray-500 line-clamp-1">
+                            {message.content}
+                          </p>
+                        )}
+
+                        <div className="flex items-center gap-1 mt-1">
+                          {getMessageIcon(message.type)}
+                          <span className="text-xs text-gray-400">{message.title}</span>
+                        </div>
                       </div>
+
                       {!message.isRead && (
                         <div className="w-2 h-2 bg-[#D97706] rounded-full flex-shrink-0 mt-2" />
                       )}
                     </div>
                   </div>
-                </Link>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 opacity-0 hover:opacity-100 transition-opacity">
-                  {!message.isRead && (
+
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {!message.isRead && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          markAsReadMutation.mutate(message.id);
+                        }}
+                        className="p-2 hover:bg-gray-100 rounded-full"
+                      >
+                        <Check className="w-4 h-4 text-gray-500" />
+                      </button>
+                    )}
                     <button
                       onClick={(e) => {
-                        e.preventDefault();
-                        markAsReadMutation.mutate(message.id);
+                        e.stopPropagation();
+                        deleteMutation.mutate(message.id);
                       }}
                       className="p-2 hover:bg-gray-100 rounded-full"
                     >
-                      <Check className="w-4 h-4 text-gray-500" />
+                      <Trash2 className="w-4 h-4 text-red-400" />
                     </button>
-                  )}
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      deleteMutation.mutate(message.id);
-                    }}
-                    className="p-2 hover:bg-gray-100 rounded-full"
-                  >
-                    <Trash2 className="w-4 h-4 text-red-400" />
-                  </button>
-                </div>
-              </motion.div>
-            ))}
+                  </div>
+                </motion.div>
+              );
+            })}
           </AnimatePresence>
         </div>
       ) : (
