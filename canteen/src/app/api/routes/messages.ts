@@ -12,14 +12,19 @@ app.get('/messages', async (c) => {
     return c.json({ success: false, error: 'Unauthorized' }, 401);
   }
 
-  const data = await withRetry(() =>
-    (db as any).query.messages.findMany({
-      where: eq(messages.userId, session.user.id),
-      orderBy: desc(messages.createdAt),
-    })
-  );
+  try {
+    const data = await withRetry(() =>
+      (db as any).query.messages.findMany({
+        where: eq(messages.userId, session.user.id),
+        orderBy: desc(messages.createdAt),
+      })
+    );
 
-  return c.json({ success: true, data });
+    return c.json({ success: true, data });
+  } catch (error) {
+    console.error('Failed to fetch messages:', error);
+    return c.json({ success: true, data: [] });
+  }
 });
 
 app.get('/messages/unread-count', async (c) => {
@@ -29,18 +34,23 @@ app.get('/messages/unread-count', async (c) => {
     return c.json({ success: false, error: 'Unauthorized' }, 401);
   }
 
-  const result = await withRetry(() =>
-    (db as any)
-      .select({ count: sql<number>`count(*)` })
-      .from(messages)
-      .where(
-        and(eq(messages.userId, session.user.id), eq(messages.isRead, false))
-      )
-  ) as any[];
+  try {
+    const result = await withRetry(() =>
+      (db as any)
+        .select({ count: sql<number>`count(*)` })
+        .from(messages)
+        .where(
+          and(eq(messages.userId, session.user.id), eq(messages.isRead, false))
+        )
+    ) as any[];
 
-  const count = result[0]?.count || 0;
+    const count = result[0]?.count || 0;
 
-  return c.json({ success: true, data: { count } });
+    return c.json({ success: true, data: { count } });
+  } catch (error) {
+    console.error('Failed to fetch unread count:', error);
+    return c.json({ success: true, data: { count: 0 } });
+  }
 });
 
 app.get('/messages/:id', async (c) => {

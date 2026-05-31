@@ -1,5 +1,6 @@
 import { db } from './index';
 import { cafeterias, stalls, dishes, users, reviews } from './schema';
+import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 
 async function seed() {
@@ -71,6 +72,13 @@ async function seed() {
 
   const insertedStalls = await db.insert(stalls).values(stallData).returning();
   console.log(`✅ Inserted ${insertedStalls.length} stalls`);
+
+  for (const stall of insertedStalls) {
+    const randomViews = Math.floor(Math.random() * 450) + 50;
+    await db.update(stalls)
+      .set({ totalViews: randomViews })
+      .where(eq(stalls.id, stall.id));
+  }
 
   // 为每个档口添加菜品 (每个档口6-8个菜品)
   const dishData = [
@@ -231,6 +239,12 @@ async function seed() {
   const insertedDishes = await db.insert(dishes).values(dishData).returning();
   console.log(`✅ Inserted ${insertedDishes.length} dishes`);
 
+  for (const dish of insertedDishes) {
+    await db.update(dishes)
+      .set({ totalReviews: 0, avgRating: '0' })
+      .where(eq(dishes.id, dish.id));
+  }
+
   // Add some reviews
   const reviewContents = [
     '味道很好，下次还会再来！',
@@ -263,6 +277,20 @@ async function seed() {
 
   await db.insert(reviews).values(reviewData);
   console.log(`✅ Inserted ${reviewData.length} reviews`);
+
+  for (const stall of insertedStalls) {
+    const stallReviews = reviewData.filter((r: any) => r.stallId === stall.id);
+    if (stallReviews.length > 0) {
+      const avgRating = (stallReviews.reduce((sum: number, r: any) => sum + r.rating, 0) / stallReviews.length).toFixed(1);
+      await db.update(stalls)
+        .set({ totalReviews: stallReviews.length, avgRating })
+        .where(eq(stalls.id, stall.id));
+    } else {
+      await db.update(stalls)
+        .set({ totalReviews: 0, avgRating: '0' })
+        .where(eq(stalls.id, stall.id));
+    }
+  }
 
   console.log('\n✅ Seeding completed!');
   console.log('\nDemo accounts:');

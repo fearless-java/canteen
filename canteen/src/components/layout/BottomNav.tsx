@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Flame, MessageCircle, User } from 'lucide-react';
+import { Home, Search, MessageCircle, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/', label: '首页', icon: Home },
-  { href: '/trending', label: '热门', icon: Flame },
+  { href: '/trending', label: '搜索', icon: Search },
   { href: '/messages', label: '消息', icon: MessageCircle },
   { href: '/profile', label: '我的', icon: User },
 ];

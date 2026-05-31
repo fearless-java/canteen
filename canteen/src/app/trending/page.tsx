@@ -71,7 +71,7 @@ export default function TrendingPage() {
     <div className="min-h-screen bg-white pb-20">
       <header className="sticky top-0 z-40 bg-white border-b border-[#EEEEEE]">
         <div className="flex items-center justify-between h-14 px-4">
-          <h1 className="text-lg font-bold text-black">热门</h1>
+          <h1 className="text-lg font-bold text-black">搜索</h1>
           <CafeteriaFilterSheet
             cafeterias={cafeterias || []}
             selectedIds={effectiveSelectedIds}

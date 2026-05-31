@@ -2,9 +2,11 @@
 
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { ArrowLeft, Star, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Star, ChevronRight, ThumbsUp } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { format } from 'date-fns';
@@ -59,6 +61,35 @@ function StarRating({ rating }: { rating: number }) {
 
 function ReviewItem({ review, index }: { review: DishDetail['reviews'][0]; index: number }) {
   const reviewImages = normalizeImages(review.images);
+  const { data: session } = useSession();
+  const [isLiked, setIsLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(review.likes);
+  const [liking, setLiking] = useState(false);
+
+  const isStudent = session?.user?.role === 'student';
+  const canLike = isStudent;
+
+  const handleLike = async () => {
+    if (!canLike || liking) return;
+    setLiking(true);
+    const prevLiked = isLiked;
+    const prevCount = likeCount;
+    setIsLiked(!isLiked);
+    setLikeCount(prevLiked ? prevCount - 1 : prevCount + 1);
+    try {
+      const res = await fetch(`/api/reviews/${review.id}/like`, { method: 'POST' });
+      const json = await res.json();
+      if (!json.success) {
+        setIsLiked(prevLiked);
+        setLikeCount(prevCount);
+      }
+    } catch {
+      setIsLiked(prevLiked);
+      setLikeCount(prevCount);
+    } finally {
+      setLiking(false);
+    }
+  };
 
   return (
     <motion.div
@@ -105,9 +136,23 @@ function ReviewItem({ review, index }: { review: DishDetail['reviews'][0]; index
         <span className="text-[13px] text-gray-400">
           {format(new Date(review.createdAt), 'MM月dd日', { locale: zhCN })}
         </span>
-        <div className="flex items-center gap-1 text-gray-400">
-          <span className="text-[13px]">👍 {review.likes}</span>
-        </div>
+        {canLike ? (
+          <button
+            onClick={handleLike}
+            disabled={liking}
+            className={`flex items-center gap-1 transition-colors ${
+              isLiked ? 'text-[#D97706]' : 'text-gray-400 hover:text-[#D97706]'
+            }`}
+          >
+            <ThumbsUp className={`w-4 h-4 ${isLiked ? 'fill-[#D97706]' : ''}`} />
+            <span className="text-[13px]">{likeCount || '点赞'}</span>
+          </button>
+        ) : (
+          <span className="flex items-center gap-1 text-gray-400">
+            <ThumbsUp className="w-4 h-4" />
+            <span className="text-[13px]">{likeCount || '点赞'}</span>
+          </span>
+        )}
       </div>
     </motion.div>
   );

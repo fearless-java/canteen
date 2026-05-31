@@ -1,7 +1,7 @@
 import { app } from '@/lib/hono';
 import { db, isLocalDB, sqliteSchema } from '@/db';
 import { stalls, dishes, reviews, reviewLikes } from '@/db/schema';
-import { eq, desc, and, gte, inArray } from 'drizzle-orm';
+import { eq, desc, and, gte, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { withRetry } from '@/lib/retry';
@@ -51,10 +51,11 @@ app.get('/stalls/:id', async (c) => {
     return c.json({ success: false, error: 'Stall not found' }, 404);
   }
 
+  const targetStalls = isLocalDB ? sqliteSchema.stalls : stalls;
   await (db as any)
-    .update(stalls)
-    .set({ totalViews: (stall as any).totalViews + 1 })
-    .where(eq(stalls.id, id));
+    .update(targetStalls)
+    .set({ totalViews: sql`total_views + 1` })
+    .where(eq(targetStalls.id, id));
 
   const session = await auth();
   const userId = session?.user?.id;
