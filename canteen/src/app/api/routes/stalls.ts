@@ -1,11 +1,11 @@
 import { app } from '@/lib/hono';
-import { db, executeSQL } from '@/db';
+import { db, isLocalDB, sqliteSchema } from '@/db';
 import { stalls, dishes, reviews, reviewLikes } from '@/db/schema';
 import { eq, desc, and, gte, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { withRetry } from '@/lib/retry';
-import { serializeForJson } from '@/lib/db-utils';
+import { serializeForJson, toDbDate } from '@/lib/db-utils';
 import { calculateHotScore } from '@/lib/review-utils';
 
 app.get('/stalls', async (c) => {
@@ -140,37 +140,29 @@ app.put('/stalls/:id', async (c) => {
   });
 
   const updates = updateSchema.parse(body);
-  const now = Date.now();
 
-  // 构建更新 SQL
-  const setClauses = ['updated_at = ?'];
-  const params: any[] = [now];
+  const updateData: Record<string, any> = {
+    updatedAt: toDbDate(new Date(), isLocalDB),
+  };
 
   if (updates.name !== undefined) {
-    setClauses.push('name = ?');
-    params.push(updates.name);
+    updateData.name = updates.name;
   }
   if (updates.description !== undefined) {
-    setClauses.push('description = ?');
-    params.push(updates.description);
+    updateData.description = updates.description;
   }
   if (updates.image !== undefined) {
-    setClauses.push('image = ?');
-    params.push(updates.image);
+    updateData.image = updates.image;
   }
   if (updates.isActive !== undefined) {
-    setClauses.push('is_active = ?');
-    params.push(updates.isActive ? 1 : 0);
+    updateData.isActive = updates.isActive;
   }
 
-  params.push(id);
+  await (db as any)
+    .update(isLocalDB ? sqliteSchema.stalls : stalls)
+    .set(updateData)
+    .where(eq(stalls.id, id));
 
-  await executeSQL(
-    `UPDATE stalls SET ${setClauses.join(', ')} WHERE id = ?`,
-    params
-  );
-
-  // 获取更新后的数据
   const [updated] = await (db as any)
     .select()
     .from(stalls)

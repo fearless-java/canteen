@@ -1,7 +1,7 @@
 import { app } from '@/lib/hono';
-import { db, sqliteSchema, querySQL } from '@/db';
-import { stalls, reviews, dishes } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { db } from '@/db';
+import { stalls, reviews, dishes, cafeterias } from '@/db/schema';
+import { eq, and, gte } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { withRetry } from '@/lib/retry';
 import { serializeForJson } from '@/lib/db-utils';
@@ -17,7 +17,7 @@ app.get('/merchant/stall', async (c) => {
   
   let stallList;
   try {
-    stallList = await (db as any).select().from(sqliteSchema.stalls).where(eq(sqliteSchema.stalls.merchantId, merchantId));
+    stallList = await (db as any).select().from(stalls).where(eq(stalls.merchantId, merchantId));
   } catch (e) {
     console.error('Query error:', e);
     return c.json({ success: false, error: 'Query failed' }, 500);
@@ -30,7 +30,7 @@ app.get('/merchant/stall', async (c) => {
   }
 
   // 获取食堂信息
-  const cafeteriaList = await (db as any).select().from(sqliteSchema.cafeterias).where(eq(sqliteSchema.cafeterias.id, stall.cafeteriaId));
+  const cafeteriaList = await (db as any).select().from(cafeterias).where(eq(cafeterias.id, stall.cafeteriaId));
 
   return c.json({ success: true, data: serializeForJson({ ...stall, cafeteria: cafeteriaList[0] }) });
 });
@@ -79,15 +79,16 @@ app.get('/merchant/stats', async (c) => {
     return c.json({ success: false, error: 'No stall found' }, 404);
   }
 
-  const sevenDaysAgoMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  const recentReviewsRows = await withRetry(() =>
-    querySQL(
-      'SELECT id, student_id AS studentId, stall_id AS stallId, dish_id AS dishId, rating, content, images, likes, merchant_reply AS merchantReply, replied_at AS repliedAt, created_at AS createdAt, updated_at AS updatedAt FROM reviews WHERE stall_id = ? AND created_at >= ?',
-      [(stall as any).id, sevenDaysAgoMs]
-    )
-  );
-  const recentReviews = recentReviewsRows as any[];
+  const recentReviews = await withRetry(() =>
+    (db as any).query.reviews.findMany({
+      where: and(
+        eq(reviews.stallId, (stall as any).id),
+        gte(reviews.createdAt, sevenDaysAgo)
+      ),
+    })
+  ) as any[];
 
   const ratingTrend = [];
   for (let i = 6; i >= 0; i--) {

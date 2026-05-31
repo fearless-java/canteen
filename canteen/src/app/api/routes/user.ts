@@ -1,11 +1,12 @@
 import { app } from '@/lib/hono';
-import { db, executeSQL } from '@/db';
+import { db, isLocalDB, sqliteSchema } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { withRetry } from '@/lib/retry';
 import { serializeForJson } from '@/lib/db-utils';
+import { toDbDate } from '@/lib/db-utils';
 
 const updateProfileSchema = z.object({
   name: z.string().min(2, '姓名至少需要2个字符').optional(),
@@ -36,26 +37,22 @@ app.put('/user/profile', async (c) => {
   }
 
   const userId = session.user.id;
-  const now = Date.now();
 
-  const setClauses: string[] = ['updated_at = ?'];
-  const params: any[] = [now];
+  const updateData: Record<string, any> = {
+    updatedAt: toDbDate(new Date(), isLocalDB),
+  };
 
   if (name !== undefined) {
-    setClauses.push('name = ?');
-    params.push(name);
+    updateData.name = name;
   }
   if (avatar !== undefined) {
-    setClauses.push('avatar = ?');
-    params.push(avatar);
+    updateData.avatar = avatar;
   }
 
-  params.push(userId);
-
-  await executeSQL(
-    `UPDATE users SET ${setClauses.join(', ')} WHERE id = ?`,
-    params
-  );
+  await (db as any)
+    .update(isLocalDB ? sqliteSchema.users : users)
+    .set(updateData)
+    .where(eq(users.id, userId));
 
   const updatedUser = await withRetry(() =>
     (db as any).query.users.findFirst({

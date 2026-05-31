@@ -1,6 +1,6 @@
 import { app } from '@/lib/hono';
-import { db, executeSQL, querySQL } from '@/db';
-import { serializeForJson } from '@/lib/db-utils';
+import { db, isLocalDB, sqliteSchema } from '@/db';
+import { serializeForJson, toDbDate } from '@/lib/db-utils';
 import { dishes, stalls, reviews } from '@/db/schema';
 import { eq, desc, like, and, inArray } from 'drizzle-orm';
 import { z } from 'zod';
@@ -145,32 +145,42 @@ app.post('/dishes', async (c) => {
 
   const { name, description, stallId, price, image } = result.data;
 
-  // 使用原生 SQL 验证商家权限
-  const stalls_result = await querySQL(
-    'SELECT id FROM stalls WHERE id = ? AND merchant_id = ?',
-    [stallId, session.user.id]
+  const ownedStall = await withRetry(() =>
+    (db as any).query.stalls.findFirst({
+      where: and(eq(stalls.id, stallId), eq(stalls.merchantId, session.user.id)),
+    })
   );
 
-  if (!stalls_result || stalls_result.length === 0) {
+  if (!ownedStall) {
     return c.json({ success: false, error: 'Not authorized' }, 403);
   }
 
-  const now = Date.now();
   const id = crypto.randomUUID();
+  const now = toDbDate(new Date(), isLocalDB);
 
-  // 使用原生 SQL 插入
-  await executeSQL(
-    'INSERT INTO dishes (id, name, description, stall_id, price, image, is_available, avg_rating, total_reviews, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, 0, 0, ?, ?)',
-    [id, name, description || null, stallId, price, image || null, now, now]
+  await (db as any)
+    .insert(isLocalDB ? sqliteSchema.dishes : dishes)
+    .values({
+      id,
+      name,
+      description: description || null,
+      stallId,
+      price,
+      image: image || null,
+      isAvailable: true,
+      avgRating: '0',
+      totalReviews: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+  const newDish = await withRetry(() =>
+    (db as any).query.dishes.findFirst({
+      where: eq(dishes.id, id),
+    })
   );
 
-  // 获取刚插入的数据
-  const dish_result = await querySQL(
-    'SELECT * FROM dishes WHERE id = ?',
-    [id]
-  );
-
-  return c.json({ success: true, data: serializeForJson(dish_result[0]) }, 201);
+  return c.json({ success: true, data: serializeForJson(newDish) }, 201);
 });
 
 app.put('/dishes/:id', async (c) => {
@@ -183,20 +193,23 @@ app.put('/dishes/:id', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json();
 
-  // 使用原生 SQL 查询菜品并验证商家权限
-  const existingDish: any[] = await querySQL(
-    `SELECT d.*, s.merchant_id as stall_merchant_id
-     FROM dishes d
-     JOIN stalls s ON d.stall_id = s.id
-     WHERE d.id = ?`,
-    [id]
+  const existingDish: any = await withRetry(() =>
+    (db as any).query.dishes.findFirst({
+      where: eq(dishes.id, id),
+    })
   );
 
-  if (!existingDish || existingDish.length === 0) {
+  if (!existingDish) {
     return c.json({ success: false, error: 'Dish not found' }, 404);
   }
 
-  if (existingDish[0].stall_merchant_id !== session.user.id) {
+  const dishStall: any = await withRetry(() =>
+    (db as any).query.stalls.findFirst({
+      where: eq(stalls.id, existingDish.stallId),
+    })
+  );
+
+  if (!dishStall || dishStall.merchantId !== session.user.id) {
     return c.json({ success: false, error: 'Not authorized' }, 403);
   }
 
@@ -220,52 +233,42 @@ app.put('/dishes/:id', async (c) => {
     );
   }
 
-  // 构建更新字段
-  const updateFields: string[] = [];
-  const updateValues: any[] = [];
-
-  if (result.data.name !== undefined) {
-    updateFields.push('name = ?');
-    updateValues.push(result.data.name);
-  }
-  if (result.data.description !== undefined) {
-    updateFields.push('description = ?');
-    updateValues.push(result.data.description);
-  }
-  if (result.data.price !== undefined) {
-    updateFields.push('price = ?');
-    updateValues.push(result.data.price);
-  }
-  if (result.data.image !== undefined) {
-    updateFields.push('image = ?');
-    updateValues.push(result.data.image);
-  }
-  if (result.data.isAvailable !== undefined) {
-    updateFields.push('is_available = ?');
-    updateValues.push(result.data.isAvailable ? 1 : 0);
-  }
-
-  if (updateFields.length === 0) {
+  if (Object.keys(result.data).length === 0) {
     return c.json({ success: false, error: 'No fields to update' }, 400);
   }
 
-  updateFields.push('updated_at = ?');
-  updateValues.push(Date.now());
-  updateValues.push(id);
+  const updateData: Record<string, any> = {
+    updatedAt: toDbDate(new Date(), isLocalDB),
+  };
 
-  // 执行更新
-  await executeSQL(
-    `UPDATE dishes SET ${updateFields.join(', ')} WHERE id = ?`,
-    updateValues
+  if (result.data.name !== undefined) {
+    updateData.name = result.data.name;
+  }
+  if (result.data.description !== undefined) {
+    updateData.description = result.data.description;
+  }
+  if (result.data.price !== undefined) {
+    updateData.price = result.data.price;
+  }
+  if (result.data.image !== undefined) {
+    updateData.image = result.data.image;
+  }
+  if (result.data.isAvailable !== undefined) {
+    updateData.isAvailable = result.data.isAvailable;
+  }
+
+  await (db as any)
+    .update(isLocalDB ? sqliteSchema.dishes : dishes)
+    .set(updateData)
+    .where(eq(dishes.id, id));
+
+  const updatedDish = await withRetry(() =>
+    (db as any).query.dishes.findFirst({
+      where: eq(dishes.id, id),
+    })
   );
 
-  // 获取更新后的数据
-  const updated_result: any[] = await querySQL(
-    'SELECT * FROM dishes WHERE id = ?',
-    [id]
-  );
-
-  return c.json({ success: true, data: serializeForJson(updated_result[0]) });
+  return c.json({ success: true, data: serializeForJson(updatedDish) });
 });
 
 app.delete('/dishes/:id', async (c) => {
@@ -277,24 +280,29 @@ app.delete('/dishes/:id', async (c) => {
 
   const id = c.req.param('id');
 
-  // 使用原生 SQL 查询菜品并验证商家权限
-  const existingDish: any[] = await querySQL(
-    `SELECT d.*, s.merchant_id as stall_merchant_id
-     FROM dishes d
-     JOIN stalls s ON d.stall_id = s.id
-     WHERE d.id = ?`,
-    [id]
+  const existingDish: any = await withRetry(() =>
+    (db as any).query.dishes.findFirst({
+      where: eq(dishes.id, id),
+    })
   );
 
-  if (!existingDish || existingDish.length === 0) {
+  if (!existingDish) {
     return c.json({ success: false, error: 'Dish not found' }, 404);
   }
 
-  if (existingDish[0].stall_merchant_id !== session.user.id) {
+  const dishStall: any = await withRetry(() =>
+    (db as any).query.stalls.findFirst({
+      where: eq(stalls.id, existingDish.stallId),
+    })
+  );
+
+  if (!dishStall || dishStall.merchantId !== session.user.id) {
     return c.json({ success: false, error: 'Not authorized' }, 403);
   }
 
-  await executeSQL('DELETE FROM dishes WHERE id = ?', [id]);
+  await (db as any)
+    .delete(isLocalDB ? sqliteSchema.dishes : dishes)
+    .where(eq(dishes.id, id));
 
   return c.json({ success: true, message: 'Dish deleted' });
 });
